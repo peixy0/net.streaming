@@ -38,7 +38,11 @@ void Tcp4Layer::SetupSocket() {
     return;
   }
   int flag = 1;
-  setsockopt(localDescriptor, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof flag);
+  int r = setsockopt(localDescriptor, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof flag);
+  if (r < 0) {
+    spdlog::error("TCP4 setsockopt(): {}", strerror(errno));
+    return;
+  }
   SetupNonBlocking(localDescriptor);
 
   sockaddr_in localAddr;
@@ -46,17 +50,18 @@ void Tcp4Layer::SetupSocket() {
   localAddr.sin_family = AF_INET;
   localAddr.sin_addr.s_addr = inet_addr(host.c_str());
   localAddr.sin_port = htons(port);
-  int rc = bind(localDescriptor, reinterpret_cast<sockaddr*>(&localAddr), sizeof localAddr);
-  if (rc != 0) {
+  r = bind(localDescriptor, reinterpret_cast<sockaddr*>(&localAddr), sizeof localAddr);
+  if (r < 0) {
     spdlog::error("TCP4 bind(): {}", strerror(errno));
     return;
   }
 
-  rc = listen(localDescriptor, 0);
-  if (rc < 0) {
+  r = listen(localDescriptor, 0);
+  if (r < 0) {
     spdlog::error("TCP4 listen(): {}", strerror(errno));
     return;
   }
+  spdlog::info("TCP4 listening on {}:{}", host, port);
 }
 
 void Tcp4Layer::SetupNonBlocking(int s) {
@@ -82,7 +87,11 @@ void Tcp4Layer::StartEpoll() {
   epoll_event event;
   event.events = EPOLLIN;
   event.data.fd = localDescriptor;
-  epoll_ctl(epollDescriptor, EPOLL_CTL_ADD, localDescriptor, &event);
+  int r = epoll_ctl(epollDescriptor, EPOLL_CTL_ADD, localDescriptor, &event);
+  if (r < 0) {
+    spdlog::error("TCP4 epoll_ctl(): {}", strerror(errno));
+    return;
+  }
 
   constexpr int maxEvents = 32;
   epoll_event events[maxEvents];
@@ -135,13 +144,20 @@ void Tcp4Layer::ReadFromPeer(int peer) {
 
 void Tcp4Layer::OnPeerClose(int peerDescriptor) {
   if (peerDescriptor > 0) {
-    epoll_ctl(epollDescriptor, EPOLL_CTL_DEL, peerDescriptor, nullptr);
+    int r = epoll_ctl(epollDescriptor, EPOLL_CTL_DEL, peerDescriptor, nullptr);
+    if (r < 0) {
+      spdlog::error("TCP4 epoll_ctl(): {}", strerror(errno));
+      return;
+    }
   }
 }
 
 TcpSender::TcpSender(int s, NetworkSupervisor& supervisor) : peerDescriptor{s}, supervisor{supervisor} {
   int flag = 0;
-  setsockopt(peerDescriptor, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof flag);
+  int r = setsockopt(peerDescriptor, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof flag);
+  if (r < 0) {
+    spdlog::error("TCP4 setsockopt(): {}", strerror(errno));
+  }
 }
 
 TcpSender::~TcpSender() {
