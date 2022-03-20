@@ -57,7 +57,7 @@ private:
 
 class TcpSender : public NetworkSender {
 public:
-  explicit TcpSender(int socket, NetworkSupervisor&);
+  TcpSender(int socket, NetworkSupervisor&);
   TcpSender(const TcpSender&) = delete;
   TcpSender(TcpSender&&) = delete;
   TcpSender& operator=(const TcpSender&) = delete;

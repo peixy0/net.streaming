@@ -9,7 +9,11 @@ struct HttpOptions {
 
 class HttpLayer : public network::NetworkLayer {
 public:
-  explicit HttpLayer(const HttpOptions& options, network::NetworkSender&);
+  HttpLayer(const HttpOptions& options, network::NetworkSender&);
+  HttpLayer(const HttpLayer&) = delete;
+  HttpLayer(HttpLayer&&) = delete;
+  HttpLayer& operator=(const HttpLayer&) = delete;
+  HttpLayer& operator=(HttpLayer&&) = delete;
   ~HttpLayer() = default;
   void Receive(std::string_view) override;
 
@@ -22,7 +26,11 @@ private:
 
 class HttpLayerFactory : public network::NetworkLayerFactory {
 public:
-  HttpLayerFactory(const HttpOptions&);
+  explicit HttpLayerFactory(const HttpOptions&);
+  HttpLayerFactory(const HttpLayerFactory&) = delete;
+  HttpLayerFactory(HttpLayerFactory&&) = delete;
+  HttpLayerFactory& operator=(const HttpLayerFactory&) = delete;
+  HttpLayerFactory& operator=(HttpLayerFactory&&) = delete;
   ~HttpLayerFactory() = default;
   std::unique_ptr<network::NetworkLayer> Create(network::NetworkSender&) const override;
 
