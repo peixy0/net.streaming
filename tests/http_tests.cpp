@@ -18,17 +18,21 @@ namespace protocol {
 
 class HttpLayerTestFixture : public Test {
 public:
-  HttpLayerTestFixture() : sut(std::make_unique<HttpLayer>(networkSenderMock)) {
+  HttpLayerTestFixture() {
+    options.maxPayloadSize = maxPayloadSize;
+    sut = std::make_unique<HttpLayer>(options, networkSenderMock);
   }
 
 protected:
+  const int maxPayloadSize = 1 << 20;
+  HttpOptions options;
   StrictMock<network::NetworkSenderMock> networkSenderMock;
   std::unique_ptr<HttpLayer> sut;
 };
 
 TEST_F(HttpLayerTestFixture, whenReceivedPayloadExceedsLimit_itWillCloseConnection) {
   EXPECT_CALL(networkSenderMock, Close());
-  std::string request(1 << 22, '.');
+  std::string request(maxPayloadSize + 1, '.');
   sut->Receive(request);
 }
 

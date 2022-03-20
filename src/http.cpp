@@ -3,12 +3,12 @@
 
 namespace protocol {
 
-HttpLayer::HttpLayer(network::NetworkSender& sender) : sender{sender} {
+HttpLayer::HttpLayer(const HttpOptions& options, network::NetworkSender& sender) : options{options}, sender{sender} {
 }
 
 void HttpLayer::Receive(std::string_view buf) {
   payloadSize += buf.size();
-  if (payloadSize > (1 << 20)) {
+  if (payloadSize > options.maxPayloadSize) {
     receivedPayload.clear();
     sender.Close();
     return;
@@ -22,8 +22,11 @@ void HttpLayer::Receive(std::string_view buf) {
   }
 }
 
+HttpLayerFactory::HttpLayerFactory(const HttpOptions& options) : options{options} {
+}
+
 std::unique_ptr<network::NetworkLayer> HttpLayerFactory::Create(network::NetworkSender& sender) const {
-  return std::make_unique<HttpLayer>(sender);
+  return std::make_unique<HttpLayer>(options, sender);
 }
 
 }  // namespace protocol
