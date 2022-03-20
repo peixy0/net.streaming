@@ -12,12 +12,20 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_options(-Wall -Wextra -pedantic -Werror)
 
+add_subdirectory(externals/spdlog)
+
 add_library(
   core
   src/http.cpp
   src/http.hpp
   src/network.cpp
   src/network.hpp
+)
+
+target_link_libraries(
+  core
+  PRIVATE
+  spdlog
 )
 
 add_executable(
@@ -27,8 +35,9 @@ add_executable(
 
 target_link_libraries(
   net
-  PUBLIC
+  PRIVATE
   core
+  spdlog
 )
 
 add_subdirectory(externals/googletest)

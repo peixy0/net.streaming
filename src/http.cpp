@@ -1,4 +1,5 @@
 #include "http.hpp"
+#include <spdlog/spdlog.h>
 #include "network.hpp"
 
 namespace protocol {
@@ -15,7 +16,7 @@ void HttpLayer::Receive(std::string_view buf) {
   }
   receivedPayload.append(buf.cbegin(), buf.cend());
   if (receivedPayload.ends_with("\r\n\r\n") or receivedPayload.ends_with("\n\n")) {
-    printf("%s", receivedPayload.c_str());
+    spdlog::debug(receivedPayload);
     receivedPayload.clear();
     sender.Send("HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nHELLO");
     sender.Close();

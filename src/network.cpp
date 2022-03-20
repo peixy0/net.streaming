@@ -3,7 +3,6 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
-#include <stdio.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
