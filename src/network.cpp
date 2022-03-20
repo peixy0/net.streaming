@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
+#include <spdlog/spdlog.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
@@ -33,7 +34,7 @@ void Tcp4Layer::Start() {
 void Tcp4Layer::SetupSocket() {
   localDescriptor = socket(AF_INET, SOCK_STREAM, 0);
   if (localDescriptor < 0) {
-    perror("TCP socket()");
+    spdlog::error("TCP4 socket(): {}", strerror(errno));
     return;
   }
   int flag = 1;
@@ -47,13 +48,13 @@ void Tcp4Layer::SetupSocket() {
   localAddr.sin_port = htons(port);
   int rc = bind(localDescriptor, reinterpret_cast<sockaddr*>(&localAddr), sizeof localAddr);
   if (rc != 0) {
-    perror("TCP bind()");
+    spdlog::error("TCP4 bind(): {}", strerror(errno));
     return;
   }
 
   rc = listen(localDescriptor, 0);
   if (rc < 0) {
-    perror("TCP listen()");
+    spdlog::error("TCP4 listen(): {}", strerror(errno));
     return;
   }
 }
@@ -61,12 +62,12 @@ void Tcp4Layer::SetupSocket() {
 void Tcp4Layer::SetupNonBlocking(int s) {
   int flags = fcntl(s, F_GETFL);
   if (flags < 0) {
-    perror("TCP fcntl()");
+    spdlog::error("TCP4 fcntl(): {}", strerror(errno));
     return;
   }
   flags = fcntl(s, F_SETFL, flags | O_NONBLOCK);
   if (flags < 0) {
-    perror("TCP fcntl()");
+    spdlog::error("TCP4 fcntl(): {}", strerror(errno));
     return;
   }
 }
@@ -74,7 +75,7 @@ void Tcp4Layer::SetupNonBlocking(int s) {
 void Tcp4Layer::StartEpoll() {
   epollDescriptor = epoll_create1(0);
   if (epollDescriptor < 0) {
-    perror("TCP epoll_create1()");
+    spdlog::error("TCP4 epoll_create1(): {}", strerror(errno));
     return;
   }
 
@@ -106,7 +107,7 @@ void Tcp4Layer::SetupPeer() {
   bzero(&peerAddr, n);
   int s = accept(localDescriptor, reinterpret_cast<sockaddr*>(&peerAddr), &n);
   if (s < 0) {
-    perror("TCP accept()");
+    spdlog::error("TCP4 accept(): {}", strerror(errno));
     return;
   }
   SetupNonBlocking(s);
