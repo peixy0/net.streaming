@@ -1,13 +1,13 @@
 #include <spdlog/spdlog.h>
 #include "http.hpp"
-#include "network.hpp"
+#include "tcp.hpp"
 
 int main() {
   spdlog::set_level(spdlog::level::info);
-  protocol::HttpOptions options;
+  network::HttpOptions options;
   options.maxPayloadSize = 1 << 20;
-  protocol::HttpLayerFactory factory{options};
-  network::Tcp4Layer network{"0.0.0.0", 8080, factory};
-  network.Start();
+  network::HttpLayerFactory factory{options};
+  network::TcpLayer tcp{"0.0.0.0", 8080, factory};
+  tcp.Start();
   return 0;
 }

@@ -2,7 +2,7 @@
 #include <spdlog/spdlog.h>
 #include "network.hpp"
 
-namespace protocol {
+namespace network {
 
 HttpLayer::HttpLayer(const HttpOptions& options, network::NetworkSender& sender) : options{options}, sender{sender} {
 }
@@ -30,4 +30,4 @@ std::unique_ptr<network::NetworkLayer> HttpLayerFactory::Create(network::Network
   return std::make_unique<HttpLayer>(options, sender);
 }
 
-}  // namespace protocol
+}  // namespace network

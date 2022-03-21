@@ -18,8 +18,8 @@ add_library(
   core
   src/http.cpp
   src/http.hpp
-  src/network.cpp
-  src/network.hpp
+  src/tcp.cpp
+  src/tcp.hpp
 )
 
 target_link_libraries(

@@ -1,7 +1,7 @@
 #pragma once
 #include "network.hpp"
 
-namespace protocol {
+namespace network {
 
 struct HttpOptions {
   std::uint32_t maxPayloadSize;
@@ -38,4 +38,4 @@ private:
   HttpOptions options;
 };
 
-}  // namespace protocol
+}  // namespace network

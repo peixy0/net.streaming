@@ -14,7 +14,7 @@ public:
 
 }  // namespace network
 
-namespace protocol {
+namespace network {
 
 class HttpLayerTestFixture : public Test {
 public:
@@ -47,4 +47,4 @@ TEST_F(HttpLayerTestFixture, whenReceivedValidHttpRequest_itWillRespondOk) {
   EXPECT_TRUE(response.starts_with("HTTP/1.1 200 OK"));
 }
 
-}  // namespace protocol
+}  // namespace network
