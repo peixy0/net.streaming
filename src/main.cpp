@@ -7,7 +7,7 @@ int main() {
   network::HttpOptions options;
   options.maxPayloadSize = 1 << 20;
   network::HttpLayerFactory factory{options};
-  network::TcpLayer tcp{"0.0.0.0", 8080, factory};
+  network::Tcp4Layer tcp{"0.0.0.0", 8080, factory};
   tcp.Start();
   return 0;
 }

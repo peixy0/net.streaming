@@ -6,27 +6,39 @@ namespace network {
 
 class TcpLayer {
 public:
-  TcpLayer(std::string_view host, std::uint16_t port, NetworkLayerFactory&);
+  explicit TcpLayer(NetworkLayerFactory&);
   TcpLayer(const TcpLayer&) = delete;
   TcpLayer(TcpLayer&&) = delete;
   TcpLayer& operator=(const TcpLayer&) = delete;
   TcpLayer& operator=(TcpLayer&&) = delete;
-  ~TcpLayer();
+  virtual ~TcpLayer();
 
   void Start();
 
+protected:
+  virtual int CreateSocket() = 0;
+  void SetNonBlocking(int);
+
 private:
-  void SetupSocket();
-  void SetupNonBlocking(int);
-  void StartEpoll();
+  void StartLoop();
   void SetupPeer();
   void ReadFromPeer(int);
 
   int localDescriptor{-1};
   int epollDescriptor{-1};
+  NetworkLayerFactory& networkLayerFactory;
+};
+
+class Tcp4Layer : public TcpLayer {
+public:
+  Tcp4Layer(std::string_view, std::uint16_t, NetworkLayerFactory&);
+
+protected:
+  int CreateSocket() override;
+
+private:
   std::string host;
   std::uint16_t port;
-  NetworkLayerFactory& networkLayerFactory;
 };
 
 class TcpSender : public NetworkSender {

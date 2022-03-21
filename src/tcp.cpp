@@ -11,8 +11,7 @@
 
 namespace network {
 
-TcpLayer::TcpLayer(std::string_view host, std::uint16_t port, NetworkLayerFactory& networkLayerFactory)
-    : host{host}, port{port}, networkLayerFactory{networkLayerFactory} {
+TcpLayer::TcpLayer(NetworkLayerFactory& networkLayerFactory) : networkLayerFactory{networkLayerFactory} {
 }
 
 TcpLayer::~TcpLayer() {
@@ -27,44 +26,14 @@ TcpLayer::~TcpLayer() {
 }
 
 void TcpLayer::Start() {
-  SetupSocket();
-  StartEpoll();
-}
-
-void TcpLayer::SetupSocket() {
-  localDescriptor = socket(AF_INET, SOCK_STREAM, 0);
+  localDescriptor = CreateSocket();
   if (localDescriptor < 0) {
-    spdlog::error("tcp socket(): {}", strerror(errno));
     return;
   }
-  int flag = 1;
-  int r = setsockopt(localDescriptor, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof flag);
-  if (r < 0) {
-    spdlog::error("tcp setsockopt(): {}", strerror(errno));
-    return;
-  }
-  SetupNonBlocking(localDescriptor);
-
-  sockaddr_in localAddr;
-  bzero(&localAddr, sizeof localAddr);
-  localAddr.sin_family = AF_INET;
-  localAddr.sin_addr.s_addr = inet_addr(host.c_str());
-  localAddr.sin_port = htons(port);
-  r = bind(localDescriptor, reinterpret_cast<sockaddr*>(&localAddr), sizeof localAddr);
-  if (r < 0) {
-    spdlog::error("tcp bind(): {}", strerror(errno));
-    return;
-  }
-
-  r = listen(localDescriptor, 0);
-  if (r < 0) {
-    spdlog::error("tcp listen(): {}", strerror(errno));
-    return;
-  }
-  spdlog::info("tcp listening on {}:{}", host, port);
+  StartLoop();
 }
 
-void TcpLayer::SetupNonBlocking(int s) {
+void TcpLayer::SetNonBlocking(int s) {
   int flags = fcntl(s, F_GETFL);
   if (flags < 0) {
     spdlog::error("tcp fcntl(): {}", strerror(errno));
@@ -77,7 +46,7 @@ void TcpLayer::SetupNonBlocking(int s) {
   }
 }
 
-void TcpLayer::StartEpoll() {
+void TcpLayer::StartLoop() {
   epollDescriptor = epoll_create1(0);
   if (epollDescriptor < 0) {
     spdlog::error("tcp epoll_create1(): {}", strerror(errno));
@@ -119,7 +88,7 @@ void TcpLayer::SetupPeer() {
     spdlog::error("tcp accept(): {}", strerror(errno));
     return;
   }
-  SetupNonBlocking(s);
+  SetNonBlocking(s);
 
   epoll_event event;
   event.events = EPOLLIN;
@@ -140,6 +109,51 @@ void TcpLayer::ReadFromPeer(int peer) {
     }
     upperLayer->Receive({buf, buf + r});
   } while (r > 0);
+}
+
+Tcp4Layer::Tcp4Layer(std::string_view host, std::uint16_t port, NetworkLayerFactory& networkLayerFactory)
+    : TcpLayer{networkLayerFactory}, host{host}, port{port} {
+}
+
+int Tcp4Layer::CreateSocket() {
+  int flag = 1;
+  int r = -1;
+  int s = socket(AF_INET, SOCK_STREAM, 0);
+  if (s < 0) {
+    spdlog::error("tcp socket(): {}", strerror(errno));
+    goto out;
+  }
+  r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof flag);
+  if (r < 0) {
+    spdlog::error("tcp setsockopt(): {}", strerror(errno));
+    goto out;
+  }
+  SetNonBlocking(s);
+
+  sockaddr_in localAddr;
+  bzero(&localAddr, sizeof localAddr);
+  localAddr.sin_family = AF_INET;
+  localAddr.sin_addr.s_addr = inet_addr(host.c_str());
+  localAddr.sin_port = htons(port);
+  r = bind(s, reinterpret_cast<sockaddr*>(&localAddr), sizeof localAddr);
+  if (r < 0) {
+    spdlog::error("tcp bind(): {}", strerror(errno));
+    goto out;
+  }
+
+  r = listen(s, 0);
+  if (r < 0) {
+    spdlog::error("tcp listen(): {}", strerror(errno));
+    goto out;
+  }
+  spdlog::info("tcp listening on {}:{}", host, port);
+  return s;
+
+out:
+  if (s >= 0) {
+    close(s);
+  }
+  return -1;
 }
 
 TcpSender::TcpSender(int s) : peerDescriptor{s} {
