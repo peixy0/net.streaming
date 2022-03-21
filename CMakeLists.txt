@@ -1,10 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
 
-project(
-  net
-  VERSION 1.0
-  LANGUAGES CXX)
-
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,7 +7,29 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_options(-Wall -Wextra -pedantic -Werror)
 
+option(BUILD_WITH_ADDRESS_SANITIZER "Build with address sanitize flags" OFF)
+option(BUILD_WITH_MEMORY_SANITIZER "Build with memory sanitize flags" OFF)
+
+if (BUILD_WITH_ADDRESS_SANITIZER)
+  set(CMAKE_C_COMPILER "/usr/bin/clang")
+  set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+  add_compile_options(-fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=address -fsanitize=undefined)
+endif()
+
+if (BUILD_WITH_MEMORY_SANITIZER)
+  set(CMAKE_C_COMPILER "/usr/bin/clang")
+  set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+  add_compile_options(-fsanitize=memory -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=memory)
+endif()
+
 add_subdirectory(externals/spdlog)
+
+project(
+  net
+  VERSION 1.0
+)
 
 add_library(
   core
@@ -57,6 +74,7 @@ target_include_directories(
 
 target_link_libraries(
   all_tests
+  PRIVATE
   gtest_main
   gmock
   core
