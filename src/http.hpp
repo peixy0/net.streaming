@@ -2,14 +2,9 @@
 #include "network.hpp"
 
 namespace network {
-
-struct HttpOptions {
-  std::uint32_t maxPayloadSize;
-};
-
 class HttpLayer : public network::NetworkLayer {
 public:
-  HttpLayer(const HttpOptions& options, network::NetworkSender&);
+  HttpLayer(HttpProcessor& processor, network::NetworkSender&);
   HttpLayer(const HttpLayer&) = delete;
   HttpLayer(HttpLayer&&) = delete;
   HttpLayer& operator=(const HttpLayer&) = delete;
@@ -18,7 +13,7 @@ public:
   void Receive(std::string_view) override;
 
 private:
-  HttpOptions options;
+  HttpProcessor& processor;
   network::NetworkSender& sender;
   std::string receivedPayload;
   std::uint32_t payloadSize{0};
@@ -26,7 +21,7 @@ private:
 
 class HttpLayerFactory : public network::NetworkLayerFactory {
 public:
-  explicit HttpLayerFactory(const HttpOptions&);
+  explicit HttpLayerFactory(HttpProcessor&);
   HttpLayerFactory(const HttpLayerFactory&) = delete;
   HttpLayerFactory(HttpLayerFactory&&) = delete;
   HttpLayerFactory& operator=(const HttpLayerFactory&) = delete;
@@ -35,7 +30,7 @@ public:
   std::unique_ptr<network::NetworkLayer> Create(network::NetworkSender&) const override;
 
 private:
-  HttpOptions options;
+  HttpProcessor& processor;
 };
 
 }  // namespace network

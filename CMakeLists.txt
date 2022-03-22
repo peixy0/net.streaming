@@ -33,6 +33,8 @@ project(
 
 add_library(
   core
+  src/app.cpp
+  src/app.hpp
   src/http.cpp
   src/http.hpp
   src/network.hpp

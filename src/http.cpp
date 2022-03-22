@@ -4,30 +4,24 @@
 
 namespace network {
 
-HttpLayer::HttpLayer(const HttpOptions& options, network::NetworkSender& sender) : options{options}, sender{sender} {
+HttpLayer::HttpLayer(HttpProcessor& processor, network::NetworkSender& sender) : processor{processor}, sender{sender} {
 }
 
-void HttpLayer::Receive(std::string_view buf) {
-  payloadSize += buf.size();
-  if (payloadSize > options.maxPayloadSize) {
-    receivedPayload.clear();
-    sender.Close();
-    return;
-  }
-  receivedPayload.append(buf.cbegin(), buf.cend());
-  if (receivedPayload.ends_with("\r\n\r\n") or receivedPayload.ends_with("\n\n")) {
-    spdlog::debug(receivedPayload);
-    receivedPayload.clear();
-    sender.Send("HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nHELLO");
-    sender.Close();
-  }
+void HttpLayer::Receive(std::string_view) {
+  HttpRequest request{"/"};
+  auto response = processor.Process(request);
+  sender.Send(
+      "HTTP/1.1 200 OK\r\n"
+      "content-length: " +
+      std::to_string(response.body.length()) + "\r\n\r\n" + response.body);
+  sender.Close();
 }
 
-HttpLayerFactory::HttpLayerFactory(const HttpOptions& options) : options{options} {
+HttpLayerFactory::HttpLayerFactory(HttpProcessor& processor) : processor{processor} {
 }
 
 std::unique_ptr<network::NetworkLayer> HttpLayerFactory::Create(network::NetworkSender& sender) const {
-  return std::make_unique<HttpLayer>(options, sender);
+  return std::make_unique<HttpLayer>(processor, sender);
 }
 
 }  // namespace network
