@@ -170,7 +170,19 @@ TcpSender::~TcpSender() {
 
 void TcpSender::Send(std::string_view buf) {
   const std::string& s{buf.cbegin(), buf.cend()};
-  send(peerDescriptor, s.c_str(), s.length(), 0);
+  int sent = 0;
+  int size = s.length();
+  while (sent < size) {
+    int n = send(peerDescriptor, s.c_str() + sent, size - sent, 0);
+    if (n == -1) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        continue;
+      } else {
+        return;
+      }
+    }
+    sent += n;
+  }
 }
 
 void TcpSender::Close() {

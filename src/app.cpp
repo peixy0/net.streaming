@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 namespace application {
 AppLayer::AppLayer() {
@@ -30,27 +31,34 @@ void AppLayer::DaemonTask() {
     if (not running) {
       return;
     }
-    auto s = std::make_shared<std::string>();
+    std::vector<utmp> entries;
     utmpname("/var/log/btmp");
     setutent();
-    for (int i = 0; i < 20; i++) {
-      auto utmp = getutent();
-      if (not utmp) {
+    for (;;) {
+      auto ent = getutent();
+      if (not ent) {
         break;
       }
-      s->append(utmp->ut_user);
+      entries.emplace_back(*ent);
+    }
+    endutent();
+
+    int n = 0;
+    auto s = std::make_shared<std::string>();
+    for (auto it = entries.rbegin(); it != entries.rend() and n < 50; it++) {
+      s->append(it->ut_user);
       s->append(" ");
-      s->append(utmp->ut_host);
+      s->append(it->ut_host);
       s->append(" ");
-      s->append(utmp->ut_line);
+      s->append(it->ut_line);
       s->append(" ");
-      time_t t = utmp->ut_tv.tv_sec;
+      time_t t = it->ut_tv.tv_sec;
       char buf[50];
       std::strftime(buf, sizeof buf, "%c %Z", std::gmtime(&t));
       s->append(buf);
       s->append("\n");
+      n++;
     }
-    endutent();
     {
       std::unique_lock l{mutex};
       content = s;

@@ -7,8 +7,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_options(-Wall -Wextra -pedantic -Werror)
 
+option(BUILD_STATIC_BINARY "Build static flag" OFF)
 option(BUILD_WITH_ADDRESS_SANITIZER "Build with address sanitize flags" OFF)
 option(BUILD_WITH_MEMORY_SANITIZER "Build with memory sanitize flags" OFF)
+
+if (BUILD_STATIC_BINARY)
+  add_compile_options(-static)
+  add_link_options(-static)
+endif()
 
 if (BUILD_WITH_ADDRESS_SANITIZER)
   set(CMAKE_C_COMPILER "/usr/bin/clang")
