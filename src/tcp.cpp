@@ -1,5 +1,6 @@
 #include "tcp.hpp"
 #include <arpa/inet.h>
+#include <asm-generic/errno.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
@@ -94,21 +95,40 @@ void TcpLayer::SetupPeer() {
   event.events = EPOLLIN;
   event.data.fd = s;
   epoll_ctl(epollDescriptor, EPOLL_CTL_ADD, s, &event);
+  auto sender = std::make_unique<TcpSender>(s);
+  auto upperLayer = networkLayerFactory.Create(std::move(sender));
+  connections.emplace(s, std::move(upperLayer));
 }
 
-void TcpLayer::ReadFromPeer(int peer) {
-  auto sender = std::make_unique<TcpSender>(peer);
-  auto upperLayer = networkLayerFactory.Create(*sender);
+void TcpLayer::ClosePeer(int peerDescriptor) {
+  epoll_ctl(epollDescriptor, EPOLL_CTL_DEL, peerDescriptor, nullptr);
+  close(peerDescriptor);
+  connections.erase(peerDescriptor);
+}
+
+void TcpLayer::ReadFromPeer(int peerDescriptor) {
+  auto it = connections.find(peerDescriptor);
+  if (it == connections.end()) {
+    spdlog::error("read from unexpected peer: {}", peerDescriptor);
+    return;
+  }
+  auto& conn = std::get<std::unique_ptr<NetworkLayer>>(*it);
   char buf[512];
   int size = sizeof buf;
-  int r = 0;
-  do {
-    r = recv(peer, buf, size, 0);
-    if (r < 0) {
+  int r = recv(peerDescriptor, buf, size, 0);
+  if (r < 0) {
+    if (errno == EAGAIN or errno == EWOULDBLOCK) {
       return;
     }
-    upperLayer->Receive({buf, buf + r});
-  } while (r > 0);
+    spdlog::error("tcp recv(): {}", strerror(errno));
+    ClosePeer(peerDescriptor);
+    return;
+  }
+  if (r == 0) {
+    ClosePeer(peerDescriptor);
+    return;
+  }
+  conn->Receive({buf, buf + r});
 }
 
 Tcp4Layer::Tcp4Layer(std::string_view host, std::uint16_t port, NetworkLayerFactory& networkLayerFactory)
@@ -187,7 +207,7 @@ void TcpSender::Send(std::string_view buf) {
 
 void TcpSender::Close() {
   if (peerDescriptor > 0) {
-    close(peerDescriptor);
+    shutdown(peerDescriptor, SHUT_RDWR);
     peerDescriptor = -1;
   }
 }

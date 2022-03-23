@@ -7,11 +7,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_options(-Wall -Wextra -pedantic -Werror)
 
-option(BUILD_STATIC_BINARY "Build static flag" OFF)
+option(BUILD_STATIC "Build static flag" OFF)
+option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_WITH_ADDRESS_SANITIZER "Build with address sanitize flags" OFF)
 option(BUILD_WITH_MEMORY_SANITIZER "Build with memory sanitize flags" OFF)
 
-if (BUILD_STATIC_BINARY)
+if (BUILD_STATIC)
   add_compile_options(-static)
   add_link_options(-static)
 endif()
@@ -66,33 +67,15 @@ target_link_libraries(
   spdlog
 )
 
-add_subdirectory(externals/googletest)
-enable_testing()
-
-add_executable(
-  all_tests
-  tests/http_tests.cpp
-)
-
-target_include_directories(
-  all_tests
-  PUBLIC
-  src
-)
-
-target_link_libraries(
-  all_tests
-  PRIVATE
-  gtest_main
-  gmock
-  core
-)
-
-include(GoogleTest)
-gtest_discover_tests(all_tests)
-
 add_custom_target(
   format
   COMMAND git ls-files '*.cpp' '*.hpp' | xargs clang-format -style=file -i
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
+
+if (BUILD_TESTS)
+  add_subdirectory(externals/googletest)
+  include(GoogleTest)
+  enable_testing()
+  add_subdirectory(tests)
+endif()

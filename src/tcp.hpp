@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <unordered_map>
 #include "network.hpp"
 
 namespace network {
@@ -22,10 +23,12 @@ protected:
 private:
   void StartLoop();
   void SetupPeer();
+  void ClosePeer(int);
   void ReadFromPeer(int);
 
   int localDescriptor{-1};
   int epollDescriptor{-1};
+  std::unordered_map<int, std::unique_ptr<NetworkLayer>> connections;
   NetworkLayerFactory& networkLayerFactory;
 };
 
