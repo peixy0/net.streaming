@@ -2,6 +2,7 @@
 #include "network.hpp"
 
 namespace network {
+
 class HttpLayer : public network::NetworkLayer {
 public:
   HttpLayer(HttpProcessor& processor, NetworkSender&);

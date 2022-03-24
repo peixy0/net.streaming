@@ -24,7 +24,7 @@ private:
 
 class TcpConnectionContext {
 public:
-  TcpConnectionContext(std::unique_ptr<NetworkLayer>, std::unique_ptr<TcpSender>);
+  TcpConnectionContext(int, std::unique_ptr<NetworkLayer>, std::unique_ptr<TcpSender>);
   ~TcpConnectionContext();
   TcpConnectionContext(const TcpConnectionContext&) = delete;
   TcpConnectionContext(TcpConnectionContext&&) = delete;
@@ -38,6 +38,7 @@ public:
   void UpdateTimeout();
 
 private:
+  int fd;
   std::unique_ptr<NetworkLayer> upperlayer;
   std::unique_ptr<TcpSender> sender;
   std::chrono::system_clock::time_point expire;

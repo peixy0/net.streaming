@@ -3,6 +3,7 @@
 #include <string_view>
 
 namespace network {
+
 struct HttpRequest {
   std::string path;
 };

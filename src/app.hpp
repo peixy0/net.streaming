@@ -4,6 +4,7 @@
 #include "network.hpp"
 
 namespace application {
+
 class AppLayer : public network::HttpProcessor {
 public:
   AppLayer();
@@ -19,4 +20,5 @@ private:
   std::shared_mutex mutex;
   std::shared_ptr<std::string> content = std::make_shared<std::string>("");
 };
+
 }  // namespace application

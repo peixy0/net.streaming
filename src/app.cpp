@@ -8,6 +8,7 @@
 #include <vector>
 
 namespace application {
+
 AppLayer::AppLayer() {
   StartDaemon();
 }
@@ -69,4 +70,5 @@ void AppLayer::DaemonTask() {
     }
   }
 }
+
 }  // namespace application

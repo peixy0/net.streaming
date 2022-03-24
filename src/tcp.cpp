@@ -1,8 +1,6 @@
 #include "tcp.hpp"
 #include <arpa/inet.h>
-#include <asm-generic/errno.h>
 #include <fcntl.h>
-#include <netdb.h>
 #include <netinet/tcp.h>
 #include <spdlog/spdlog.h>
 #include <string.h>
@@ -49,14 +47,15 @@ void TcpSender::Close() {
   }
 }
 
-TcpConnectionContext::TcpConnectionContext(std::unique_ptr<NetworkLayer> upperlayer, std::unique_ptr<TcpSender> sender)
-    : upperlayer{std::move(upperlayer)}, sender{std::move(sender)} {
-  spdlog::debug("tcp connection established");
+TcpConnectionContext::TcpConnectionContext(int fd, std::unique_ptr<NetworkLayer> upperlayer,
+                                           std::unique_ptr<TcpSender> sender)
+    : fd{fd}, upperlayer{std::move(upperlayer)}, sender{std::move(sender)} {
+  spdlog::debug("tcp connection established: {}", fd);
   UpdateTimeout();
 }
 
 TcpConnectionContext::~TcpConnectionContext() {
-  spdlog::debug("tcp connection closed");
+  spdlog::debug("tcp connection closed: {}", fd);
 }
 
 NetworkLayer& TcpConnectionContext::GetUpperlayer() {
@@ -189,7 +188,7 @@ void TcpLayer::SetupPeer() {
   epoll_ctl(epollDescriptor, EPOLL_CTL_ADD, s, &event);
   auto sender = std::make_unique<TcpSender>(s);
   auto upperlayer = networkLayerFactory.Create(*sender);
-  auto context = std::make_unique<TcpConnectionContext>(std::move(upperlayer), std::move(sender));
+  auto context = std::make_unique<TcpConnectionContext>(s, std::move(upperlayer), std::move(sender));
   connections.emplace(s, std::move(context));
 }
 
