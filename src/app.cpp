@@ -1,4 +1,5 @@
 #include "app.hpp"
+#include <spdlog/spdlog.h>
 #include <utmp.h>
 #include <chrono>
 #include <ctime>
@@ -18,7 +19,11 @@ AppLayer::~AppLayer() {
   daemon.join();
 }
 
-network::HttpResponse AppLayer::Process(const network::HttpRequest&) {
+network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
+  spdlog::debug("http request {} {} {}", req.method, req.uri, req.version);
+  for (const auto& [field, value] : req.headers) {
+    spdlog::debug("http header {}: {}", field, value);
+  }
   std::shared_lock l{mutex};
   return {*content};
 }

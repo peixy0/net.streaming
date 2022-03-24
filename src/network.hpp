@@ -1,11 +1,23 @@
 #pragma once
 #include <memory>
 #include <string_view>
+#include <unordered_map>
 
 namespace network {
 
+struct HttpHeader {
+  std::string field;
+  std::string value;
+};
+
+using HttpHeaders = std::unordered_map<std::string, std::string>;
+
 struct HttpRequest {
-  std::string path;
+  std::string method;
+  std::string uri;
+  std::string version;
+  HttpHeaders headers;
+  std::string body;
 };
 
 struct HttpResponse {

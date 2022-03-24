@@ -201,7 +201,7 @@ void TcpLayer::ClosePeer(int peerDescriptor) {
 void TcpLayer::ReadFromPeer(int peerDescriptor) {
   auto it = connections.find(peerDescriptor);
   if (it == connections.end()) {
-    spdlog::error("read from unexpected peer: {}", peerDescriptor);
+    spdlog::error("tcp read from unexpected peer: {}", peerDescriptor);
     return;
   }
   char buf[512];

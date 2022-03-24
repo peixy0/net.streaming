@@ -15,6 +15,7 @@ target_link_libraries(
   PRIVATE
   gtest_main
   gmock
+  spdlog
   core
 )
 
