@@ -6,3 +6,6 @@ DerivePointerAlignment: false
 PointerAlignment: Left
 AllowShortFunctionsOnASingleLine: None
 IncludeBlocks: Merge
+MaxEmptyLinesToKeep: 1
+EmptyLineBeforeAccessModifier: Always
+KeepEmptyLinesAtTheStartOfBlocks: false
