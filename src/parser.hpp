@@ -28,8 +28,10 @@ private:
   std::optional<std::string> method;
   std::optional<std::string> uri;
   std::optional<std::string> version;
-  bool headerParsed{false};
+  bool requestLineEndingParsed{false};
   HttpHeaders headers;
+  bool headersParsed{false};
+  bool headersEndingParsed{false};
   std::uint32_t bodyRemaining{0};
 };
 

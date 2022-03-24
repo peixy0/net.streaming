@@ -21,16 +21,22 @@ std::optional<HttpRequest> ConcreteHttpParser::Parse(std::string& payload) {
     if (not version) {
       return std::nullopt;
     }
-    if (not Consume(payload, "\r\n")) {
+  }
+  if (not requestLineEndingParsed) {
+    requestLineEndingParsed = Consume(payload, "\r\n");
+    if (not requestLineEndingParsed) {
       return std::nullopt;
     }
   }
-  if (not headerParsed) {
-    headerParsed = ParseHeaders(payload, headers);
-    if (not headerParsed) {
+  if (not headersParsed) {
+    headersParsed = ParseHeaders(payload, headers);
+    if (not headersParsed) {
       return std::nullopt;
     }
-    if (not Consume(payload, "\r\n")) {
+  }
+  if (not headersEndingParsed) {
+    headersEndingParsed = Consume(payload, "\r\n");
+    if (not headersEndingParsed) {
       return std::nullopt;
     }
   }
@@ -49,8 +55,10 @@ void ConcreteHttpParser::Reset() {
   method.reset();
   uri.reset();
   version.reset();
-  headerParsed = false;
+  requestLineEndingParsed = false;
   headers.clear();
+  headersParsed = false;
+  headersEndingParsed = false;
   bodyRemaining = 0;
 }
 
