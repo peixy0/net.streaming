@@ -45,6 +45,8 @@ add_library(
   src/http.cpp
   src/http.hpp
   src/network.hpp
+  src/parser.cpp
+  src/parser.hpp
   src/tcp.cpp
   src/tcp.hpp
 )

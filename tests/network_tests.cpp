@@ -8,18 +8,20 @@ using namespace testing;
 namespace network {
 
 TEST(HttpLayerTestSuite, whenReceivedValidHttpRequest_itShouldRespondOk) {
-  std::string response;
+  std::string responsePayload;
+  HttpRequest httpRequest;
+  httpRequest.method = "get";
+  httpRequest.uri = "/";
   auto parserMock = std::make_unique<StrictMock<network::HttpParserMock>>();
-  EXPECT_CALL(*parserMock, Parse(_)).WillOnce(Return(HttpRequest{}));
+  EXPECT_CALL(*parserMock, Parse(_)).WillOnce(Return(httpRequest));
   StrictMock<HttpProcessorMock> processor;
   StrictMock<network::NetworkSenderMock> senderMock;
-  EXPECT_CALL(senderMock, Send(_)).WillOnce(SaveArg<0>(&response));
-  EXPECT_CALL(senderMock, Close());
+  EXPECT_CALL(senderMock, Send(_)).WillOnce(SaveArg<0>(&responsePayload));
   auto sut = std::make_unique<HttpLayer>(std::move(parserMock), processor, senderMock);
   EXPECT_CALL(processor, Process(_));
-  std::string request("GET / HTTP/1.1\r\n\r\n");
-  sut->Receive(request);
-  EXPECT_TRUE(response.starts_with("HTTP/1.1 200 OK"));
+  std::string requestPayload("GET / HTTP/1.1\r\n\r\n");
+  sut->Receive(requestPayload);
+  EXPECT_TRUE(responsePayload.starts_with("HTTP/1.1 200 OK"));
 }
 
 TEST(HttpParserTestSuite, whenReceivedValidHttpRequest_itShouldParseTheRequest) {
