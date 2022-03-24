@@ -9,8 +9,75 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <chrono>
 
 namespace network {
+
+TcpSender::TcpSender(int s) : peerDescriptor{s} {
+  int flag = 0;
+  int r = setsockopt(peerDescriptor, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof flag);
+  if (r < 0) {
+    spdlog::error("tcp setsockopt(): {}", strerror(errno));
+  }
+}
+
+TcpSender::~TcpSender() {
+  Close();
+}
+
+void TcpSender::Send(std::string_view buf) {
+  const std::string& s{buf.cbegin(), buf.cend()};
+  int sent = 0;
+  int size = s.length();
+  while (sent < size) {
+    int n = send(peerDescriptor, s.c_str() + sent, size - sent, 0);
+    if (n == -1) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        continue;
+      } else {
+        return;
+      }
+    }
+    sent += n;
+  }
+}
+
+void TcpSender::Close() {
+  if (peerDescriptor > 0) {
+    shutdown(peerDescriptor, SHUT_RDWR);
+    peerDescriptor = -1;
+  }
+}
+
+TcpConnectionContext::TcpConnectionContext(std::unique_ptr<NetworkLayer> upperlayer, std::unique_ptr<TcpSender> sender)
+    : upperlayer{std::move(upperlayer)}, sender{std::move(sender)} {
+  spdlog::debug("tcp connection established");
+  UpdateTimeout();
+}
+
+TcpConnectionContext::~TcpConnectionContext() {
+  spdlog::debug("tcp connection closed");
+}
+
+NetworkLayer& TcpConnectionContext::GetUpperlayer() {
+  return *upperlayer;
+}
+
+TcpSender& TcpConnectionContext::GetTcpSender() {
+  return *sender;
+}
+
+int TcpConnectionContext::GetTimeout() const {
+  auto d = expire - std::chrono::system_clock::now();
+  auto s = std::chrono::duration_cast<std::chrono::seconds>(d);
+  auto t = s.count();
+  return t > 0 ? t : 0;
+}
+
+void TcpConnectionContext::UpdateTimeout() {
+  using namespace std::chrono_literals;
+  expire = std::chrono::system_clock::now() + 20s;
+}
 
 TcpLayer::TcpLayer(NetworkLayerFactory& networkLayerFactory) : networkLayerFactory{networkLayerFactory} {
 }
@@ -66,7 +133,8 @@ void TcpLayer::StartLoop() {
   constexpr int maxEvents = 32;
   epoll_event events[maxEvents];
   while (true) {
-    int n = epoll_wait(epollDescriptor, events, maxEvents, -1);
+    int t = FindMostRecentTimeout();
+    int n = epoll_wait(epollDescriptor, events, maxEvents, t);
     for (int i = 0; i < n; i++) {
       if (events[i].data.fd == localDescriptor) {
         SetupPeer();
@@ -77,7 +145,31 @@ void TcpLayer::StartLoop() {
         continue;
       }
     }
+    PurgeExpiredConnections();
   }
+}
+
+void TcpLayer::PurgeExpiredConnections() {
+  for (auto& [_, context] : connections) {
+    if (context->GetTimeout() <= 0) {
+      context->GetTcpSender().Close();
+    }
+  }
+}
+
+int TcpLayer::FindMostRecentTimeout() {
+  if (connections.empty()) {
+    return -1;
+  }
+  auto it = connections.begin();
+  int r = std::get<std::unique_ptr<TcpConnectionContext>>(*it)->GetTimeout();
+  while (++it != connections.end()) {
+    int t = std::get<std::unique_ptr<TcpConnectionContext>>(*it)->GetTimeout();
+    if (r > t) {
+      r = t;
+    }
+  }
+  return r;
 }
 
 void TcpLayer::SetupPeer() {
@@ -96,8 +188,9 @@ void TcpLayer::SetupPeer() {
   event.data.fd = s;
   epoll_ctl(epollDescriptor, EPOLL_CTL_ADD, s, &event);
   auto sender = std::make_unique<TcpSender>(s);
-  auto upperLayer = networkLayerFactory.Create(std::move(sender));
-  connections.emplace(s, std::move(upperLayer));
+  auto upperlayer = networkLayerFactory.Create(*sender);
+  auto context = std::make_unique<TcpConnectionContext>(std::move(upperlayer), std::move(sender));
+  connections.emplace(s, std::move(context));
 }
 
 void TcpLayer::ClosePeer(int peerDescriptor) {
@@ -112,7 +205,6 @@ void TcpLayer::ReadFromPeer(int peerDescriptor) {
     spdlog::error("read from unexpected peer: {}", peerDescriptor);
     return;
   }
-  auto& conn = std::get<std::unique_ptr<NetworkLayer>>(*it);
   char buf[512];
   int size = sizeof buf;
   int r = recv(peerDescriptor, buf, size, 0);
@@ -128,7 +220,9 @@ void TcpLayer::ReadFromPeer(int peerDescriptor) {
     ClosePeer(peerDescriptor);
     return;
   }
-  conn->Receive({buf, buf + r});
+  auto& context = std::get<std::unique_ptr<TcpConnectionContext>>(*it);
+  auto& upperlayer = context->GetUpperlayer();
+  upperlayer.Receive({buf, buf + r});
 }
 
 Tcp4Layer::Tcp4Layer(std::string_view host, std::uint16_t port, NetworkLayerFactory& networkLayerFactory)
@@ -174,42 +268,6 @@ out:
     close(s);
   }
   return -1;
-}
-
-TcpSender::TcpSender(int s) : peerDescriptor{s} {
-  int flag = 0;
-  int r = setsockopt(peerDescriptor, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof flag);
-  if (r < 0) {
-    spdlog::error("tcp setsockopt(): {}", strerror(errno));
-  }
-}
-
-TcpSender::~TcpSender() {
-  Close();
-}
-
-void TcpSender::Send(std::string_view buf) {
-  const std::string& s{buf.cbegin(), buf.cend()};
-  int sent = 0;
-  int size = s.length();
-  while (sent < size) {
-    int n = send(peerDescriptor, s.c_str() + sent, size - sent, 0);
-    if (n == -1) {
-      if (errno == EAGAIN || errno == EWOULDBLOCK) {
-        continue;
-      } else {
-        return;
-      }
-    }
-    sent += n;
-  }
-}
-
-void TcpSender::Close() {
-  if (peerDescriptor > 0) {
-    shutdown(peerDescriptor, SHUT_RDWR);
-    peerDescriptor = -1;
-  }
 }
 
 }  // namespace network

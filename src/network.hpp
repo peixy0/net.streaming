@@ -32,7 +32,7 @@ public:
 
 class NetworkLayerFactory {
 public:
-  virtual std::unique_ptr<NetworkLayer> Create(std::unique_ptr<NetworkSender>) const = 0;
+  virtual std::unique_ptr<NetworkLayer> Create(NetworkSender&) const = 0;
 };
 
 }  // namespace network

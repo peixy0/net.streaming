@@ -4,7 +4,7 @@
 namespace network {
 class HttpLayer : public network::NetworkLayer {
 public:
-  HttpLayer(HttpProcessor& processor, std::unique_ptr<NetworkSender>);
+  HttpLayer(HttpProcessor& processor, NetworkSender&);
   HttpLayer(const HttpLayer&) = delete;
   HttpLayer(HttpLayer&&) = delete;
   HttpLayer& operator=(const HttpLayer&) = delete;
@@ -14,7 +14,7 @@ public:
 
 private:
   HttpProcessor& processor;
-  std::unique_ptr<NetworkSender> sender;
+  NetworkSender& sender;
   std::string receivedPayload;
   std::uint32_t payloadSize{0};
 };
@@ -27,7 +27,7 @@ public:
   HttpLayerFactory& operator=(const HttpLayerFactory&) = delete;
   HttpLayerFactory& operator=(HttpLayerFactory&&) = delete;
   ~HttpLayerFactory() = default;
-  std::unique_ptr<network::NetworkLayer> Create(std::unique_ptr<NetworkSender>) const override;
+  std::unique_ptr<network::NetworkLayer> Create(NetworkSender&) const override;
 
 private:
   HttpProcessor& processor;

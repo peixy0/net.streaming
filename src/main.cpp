@@ -9,7 +9,7 @@ int main(int argc, char* argv[]) {
     return -1;
   }
   std::uint16_t port = std::atoi(argv[1]);
-  spdlog::set_level(spdlog::level::info);
+  spdlog::set_level(spdlog::level::debug);
   application::AppLayer app;
   network::HttpLayerFactory factory{app};
   network::Tcp4Layer tcp{"0.0.0.0", port, factory};
