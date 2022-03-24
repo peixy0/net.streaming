@@ -175,12 +175,15 @@ void HttpLayer::Receive(std::string_view packet) {
     return;
   }
   payloadSize = receivedPayload.size();
+  if (request->uri != "/") {
+    sender.Send("HTTP/1.1 404 Not Found\r\n\r\n");
+    return;
+  }
   auto response = processor.Process(*request);
   sender.Send(
       "HTTP/1.1 200 OK\r\n"
       "content-length: " +
       std::to_string(response.body.length()) + "\r\n\r\n" + response.body);
-  sender.Close();
 }
 
 HttpLayerFactory::HttpLayerFactory(HttpProcessor& processor) : processor{processor} {
