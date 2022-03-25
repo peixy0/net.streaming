@@ -31,7 +31,7 @@ void HttpLayer::Receive(std::string_view packet) {
     return;
   }
   spdlog::debug("http received packet: {}", packet);
-  receivedPayload.append(packet);
+  receivedPayload.append(std::move(packet));
   auto request = parser->Parse(receivedPayload);
   if (not request) {
     return;
@@ -44,7 +44,7 @@ void HttpLayer::Receive(std::string_view packet) {
   }
   respPacket += "content-length: " + std::to_string(response.body.length()) + "\r\n\r\n";
   respPacket += response.body;
-  sender.Send(respPacket);
+  sender.Send(std::move(respPacket));
 }
 
 HttpLayerFactory::HttpLayerFactory(HttpProcessor& processor) : processor{processor} {

@@ -24,9 +24,9 @@ TcpSender::~TcpSender() {
 }
 
 void TcpSender::Send(std::string_view buf) {
-  const std::string& s{buf.cbegin(), buf.cend()};
   int sent = 0;
-  int size = s.length();
+  int size = buf.length();
+  const std::string& s{buf.cbegin(), buf.cend()};
   while (sent < size) {
     int n = send(peerDescriptor, s.c_str() + sent, size - sent, 0);
     if (n == -1) {
