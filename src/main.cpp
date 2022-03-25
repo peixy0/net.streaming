@@ -5,14 +5,15 @@
 #include "tcp.hpp"
 
 int main(int argc, char* argv[]) {
-  if (argc < 2) {
+  if (argc < 3) {
     return -1;
   }
-  std::uint16_t port = std::atoi(argv[1]);
+  auto* host = argv[1];
+  std::uint16_t port = std::atoi(argv[2]);
   spdlog::set_level(spdlog::level::info);
   application::AppLayer app;
   network::HttpLayerFactory factory{app};
-  network::Tcp4Layer tcp{"0.0.0.0", port, factory};
+  network::Tcp4Layer tcp{host, port, factory};
   tcp.Start();
   return 0;
 }
