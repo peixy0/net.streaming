@@ -12,6 +12,13 @@ public:
 
 class ConcreteHttpParser : public HttpParser {
 public:
+  ConcreteHttpParser() = default;
+  ConcreteHttpParser(const ConcreteHttpParser&) = delete;
+  ConcreteHttpParser(ConcreteHttpParser&&) = delete;
+  ConcreteHttpParser& operator=(const ConcreteHttpParser&) = delete;
+  ConcreteHttpParser& operator=(ConcreteHttpParser&&) = delete;
+  ~ConcreteHttpParser() = default;
+
   std::optional<HttpRequest> Parse(std::string&);
 
 private:
