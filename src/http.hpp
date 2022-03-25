@@ -7,7 +7,7 @@ namespace network {
 
 class HttpResponseVisitor {
 public:
-  HttpResponseVisitor(NetworkSender&);
+  explicit HttpResponseVisitor(NetworkSender&);
   void operator()(const PlainHttpResponse&) const;
   void operator()(const FileHttpResponse&) const;
 

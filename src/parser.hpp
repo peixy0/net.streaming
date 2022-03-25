@@ -23,8 +23,6 @@ public:
 
 private:
   void Reset();
-  bool IsControl(char c) const;
-  bool IsSeparator(char c) const;
   void SkipWhiteSpaces(std::string&) const;
   bool Consume(std::string&, std::string_view) const;
   std::optional<std::string> ParseToken(std::string&) const;

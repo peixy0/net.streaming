@@ -33,7 +33,6 @@ public:
   TcpConnectionContext& operator=(TcpConnectionContext&&) = delete;
 
   NetworkLayer& GetUpperlayer();
-
   TcpSender& GetTcpSender();
   int GetTimeout() const;
   void UpdateTimeout();
