@@ -13,7 +13,7 @@ TEST(HttpLayerTestSuite, whenReceivedValidHttpRequest_itShouldRespondOk) {
   HttpRequest httpRequest;
   httpRequest.method = "get";
   httpRequest.uri = "/";
-  HttpResponse httpResponse;
+  PlainHttpResponse httpResponse;
   httpResponse.status = HttpStatus::OK;
   auto parserMock = std::make_unique<StrictMock<network::HttpParserMock>>();
   EXPECT_CALL(*parserMock, Parse(_)).WillOnce(Return(httpRequest));

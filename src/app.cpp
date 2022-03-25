@@ -26,13 +26,13 @@ network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
   for (const auto& [field, value] : req.headers) {
     spdlog::debug("http header {}: {}", field, value);
   }
-  if (req.uri != "/") {
-    return {network::HttpStatus::NotFound, {}, ""};
+  if (req.uri == "/") {
+    network::HttpHeaders headers;
+    headers.emplace("content-type", "application/json");
+    std::shared_lock l{mutex};
+    return network::PlainHttpResponse{network::HttpStatus::OK, std::move(headers), *content};
   }
-  network::HttpHeaders headers;
-  headers.emplace("content-type", "application/json");
-  std::shared_lock l{mutex};
-  return {network::HttpStatus::OK, std::move(headers), *content};
+  return network::PlainHttpResponse{network::HttpStatus::NotFound, {}, ""};
 }
 
 void AppLayer::StartDaemon() {
@@ -56,17 +56,18 @@ void AppLayer::DaemonTask() {
     }
     endutent();
 
-    nlohmann::json json;
+    nlohmann::json result;
     int n = 0;
     for (auto it = entries.rbegin(); it != entries.rend() and n < 50; it++) {
       time_t t = it->ut_tv.tv_sec;
       char timebuf[50];
       std::strftime(timebuf, sizeof timebuf, "%c %Z", std::gmtime(&t));
       nlohmann::json item = {{"tv", timebuf}, {"line", it->ut_line}, {"host", it->ut_host}, {"user", it->ut_user}};
-      json.emplace_back(std::move(item));
+      result.emplace_back(std::move(item));
       n++;
     }
-    auto s = std::make_shared<std::string>(json.dump());
+
+    auto s = std::make_shared<std::string>(result.dump());
     {
       std::unique_lock l{mutex};
       content = s;

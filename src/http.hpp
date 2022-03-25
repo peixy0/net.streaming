@@ -5,6 +5,16 @@
 
 namespace network {
 
+class HttpResponseVisitor {
+public:
+  HttpResponseVisitor(NetworkSender&);
+  void operator()(const PlainHttpResponse&) const;
+  void operator()(const FileHttpResponse&) const;
+
+private:
+  NetworkSender& sender;
+};
+
 class HttpLayer : public network::NetworkLayer {
 public:
   HttpLayer(std::unique_ptr<HttpParser> parser, HttpProcessor& processor, NetworkSender&);
@@ -20,7 +30,7 @@ private:
   HttpProcessor& processor;
   NetworkSender& sender;
   std::string receivedPayload;
-  std::uint32_t payloadSize{0};
+  size_t payloadSize{0};
 };
 
 class HttpLayerFactory : public network::NetworkLayerFactory {

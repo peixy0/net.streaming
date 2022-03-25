@@ -1,5 +1,7 @@
 #include "http.hpp"
+#include <fcntl.h>
 #include <spdlog/spdlog.h>
+#include <sys/stat.h>
 #include <cctype>
 #include "network.hpp"
 
@@ -18,6 +20,36 @@ std::string to_string(network::HttpStatus status) {
 }  // namespace
 
 namespace network {
+
+HttpResponseVisitor::HttpResponseVisitor(NetworkSender& sender) : sender{sender} {
+}
+
+void HttpResponseVisitor::operator()(const PlainHttpResponse& response) const {
+  std::string respPacket = "HTTP/1.1 " + to_string(response.status) + "\r\n";
+  for (const auto& header : response.headers) {
+    respPacket += header.first + ": " + header.second + "\r\n";
+  }
+  respPacket += "content-length: " + std::to_string(response.body.length()) + "\r\n\r\n";
+  respPacket += response.body;
+  sender.Send(std::move(respPacket));
+}
+
+void HttpResponseVisitor::operator()(const FileHttpResponse& response) const {
+  int fd = open(response.path.c_str(), O_RDONLY);
+  if (fd < 0) {
+    spdlog::error("http open(): {}", strerror(errno));
+    sender.Send("HTTP/1.1" + to_string(HttpStatus::NotFound) + "\r\n\r\n");
+    return;
+  }
+  struct stat statbuf;
+  fstat(fd, &statbuf);
+  size_t size = statbuf.st_size;
+  std::string respPacket = "HTTP/1.1" + to_string(HttpStatus::OK) + "\r\n";
+  respPacket += "content-length: " + std::to_string(size) + "\r\n\r\n";
+  sender.Send(respPacket);
+  sender.SendFile(fd, size);
+  close(fd);
+}
 
 HttpLayer::HttpLayer(std::unique_ptr<HttpParser> parser, HttpProcessor& processor, NetworkSender& sender)
     : parser{std::move(parser)}, processor{processor}, sender{sender} {
@@ -38,13 +70,7 @@ void HttpLayer::Receive(std::string_view packet) {
   }
   payloadSize = receivedPayload.size();
   auto response = processor.Process(std::move(*request));
-  std::string respPacket = "HTTP/1.1 " + to_string(response.status) + "\r\n";
-  for (const auto& header : response.headers) {
-    respPacket += header.first + ": " + header.second + "\r\n";
-  }
-  respPacket += "content-length: " + std::to_string(response.body.length()) + "\r\n\r\n";
-  respPacket += response.body;
-  sender.Send(std::move(respPacket));
+  std::visit(HttpResponseVisitor{sender}, response);
 }
 
 HttpLayerFactory::HttpLayerFactory(HttpProcessor& processor) : processor{processor} {

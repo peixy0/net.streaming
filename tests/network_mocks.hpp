@@ -17,6 +17,7 @@ public:
 class NetworkSenderMock : public NetworkSender {
 public:
   MOCK_METHOD(void, Send, (std::string_view), (override));
+  MOCK_METHOD(void, SendFile, (int, size_t), (override));
   MOCK_METHOD(void, Close, (), (override));
 };
 

@@ -2,6 +2,7 @@
 #include <memory>
 #include <string_view>
 #include <unordered_map>
+#include <variant>
 
 namespace network {
 
@@ -22,11 +23,17 @@ struct HttpRequest {
   std::string body;
 };
 
-struct HttpResponse {
+struct PlainHttpResponse {
   HttpStatus status;
   HttpHeaders headers;
   std::string body;
 };
+
+struct FileHttpResponse {
+  std::string path;
+};
+
+using HttpResponse = std::variant<PlainHttpResponse, FileHttpResponse>;
 
 class HttpProcessor {
 public:
@@ -38,6 +45,7 @@ class NetworkSender {
 public:
   virtual ~NetworkSender() = default;
   virtual void Send(std::string_view) = 0;
+  virtual void SendFile(int, size_t) = 0;
   virtual void Close() = 0;
 };
 

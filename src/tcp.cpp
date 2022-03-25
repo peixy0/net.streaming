@@ -5,6 +5,7 @@
 #include <spdlog/spdlog.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <chrono>
@@ -24,17 +25,32 @@ TcpSender::~TcpSender() {
 }
 
 void TcpSender::Send(std::string_view buf) {
-  int sent = 0;
-  int size = buf.length();
+  size_t sent = 0;
+  size_t size = buf.length();
   const std::string& s{buf.cbegin(), buf.cend()};
   while (sent < size) {
     int n = send(peerDescriptor, s.c_str() + sent, size - sent, 0);
     if (n == -1) {
-      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+      if (errno == EAGAIN or errno == EWOULDBLOCK) {
         continue;
-      } else {
-        return;
       }
+      spdlog::error("tcp send(): {}", strerror(errno));
+      return;
+    }
+    sent += n;
+  }
+}
+
+void TcpSender::SendFile(int fd, size_t size) {
+  size_t sent = 0;
+  while (sent < size) {
+    int n = sendfile(peerDescriptor, fd, nullptr, size);
+    if (n < 0) {
+      if (errno == EAGAIN or errno == EWOULDBLOCK) {
+        continue;
+      }
+      spdlog::error("tcp sendfile(): {}", strerror(errno));
+      return;
     }
     sent += n;
   }
@@ -173,7 +189,7 @@ int TcpLayer::FindMostRecentTimeout() {
 
 void TcpLayer::SetupPeer() {
   sockaddr_in peerAddr;
-  unsigned int n = sizeof peerAddr;
+  socklen_t n = sizeof peerAddr;
   bzero(&peerAddr, n);
   int s = accept(localDescriptor, reinterpret_cast<sockaddr*>(&peerAddr), &n);
   if (s < 0) {
@@ -205,7 +221,7 @@ void TcpLayer::ReadFromPeer(int peerDescriptor) {
     return;
   }
   char buf[512];
-  int size = sizeof buf;
+  size_t size = sizeof buf;
   int r = recv(peerDescriptor, buf, size, 0);
   if (r < 0) {
     if (errno == EAGAIN or errno == EWOULDBLOCK) {

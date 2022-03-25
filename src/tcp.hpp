@@ -16,6 +16,7 @@ public:
   ~TcpSender();
 
   void Send(std::string_view) override;
+  void SendFile(int, size_t) override;
   void Close() override;
 
 private:
