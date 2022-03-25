@@ -1,5 +1,15 @@
 #include "parser.hpp"
 
+namespace {
+
+void ToLower(std::string& s) {
+  for (char& c : s) {
+    c = tolower(c);
+  }
+}
+
+}  // namespace
+
 namespace network {
 
 std::optional<HttpRequest> ConcreteHttpParser::Parse(std::string& payload) {
@@ -62,12 +72,6 @@ void ConcreteHttpParser::Reset() {
   bodyRemaining = 0;
 }
 
-void ConcreteHttpParser::ToLower(std::string& token) const {
-  for (auto& c : token) {
-    c = std::tolower(c);
-  }
-}
-
 void ConcreteHttpParser::SkipWhiteSpaces(std::string& payload) const {
   while (not payload.empty() and payload[0] == ' ') {
     payload.erase(0, 1);
@@ -75,9 +79,9 @@ void ConcreteHttpParser::SkipWhiteSpaces(std::string& payload) const {
 }
 
 bool ConcreteHttpParser::Consume(std::string& payload, std::string_view value) const {
-  int payloadLength = payload.length();
-  int valueLength = value.length();
-  for (int i = 0; i < valueLength; i++) {
+  size_t payloadLength = payload.length();
+  size_t valueLength = value.length();
+  for (size_t i = 0; i < valueLength; i++) {
     if (i >= payloadLength or payload[i] != value[i]) {
       return false;
     }
@@ -91,9 +95,9 @@ std::optional<std::string> ConcreteHttpParser::ParseToken(std::string& payload) 
   if (payload.empty()) {
     return std::nullopt;
   }
-  int n = 0;
-  int length = payload.length();
-  while (n < length and payload[n] != ' ' and payload[n] != '\r' and payload[n] != '\n') {
+  size_t n = 0;
+  size_t length = payload.length();
+  while (n < length and not(payload[n] == ' ' or payload[n] == '\r' or payload[n] == '\n')) {
     n++;
   }
   if (n == length) {
@@ -101,6 +105,7 @@ std::optional<std::string> ConcreteHttpParser::ParseToken(std::string& payload) 
   }
   std::string token = payload.substr(0, n);
   payload.erase(0, n);
+  SkipWhiteSpaces(payload);
   return token;
 }
 
@@ -119,33 +124,43 @@ bool ConcreteHttpParser::ParseHeaders(std::string& payload, HttpHeaders& headers
 }
 
 std::optional<HttpHeader> ConcreteHttpParser::ParseHeader(std::string& payload) const {
-  auto line = ParseLine(payload);
+  auto line = ParseHeaderLine(payload);
   if (not line) {
     return std::nullopt;
   }
-  ToLower(*line);
-  int length = line->length();
-  int n = 0;
-  while (n < length and (*line)[n] != ':') {
-    n++;
+  auto field = ParseHeaderField(*line);
+  if (not field) {
+    return std::nullopt;
   }
-  if (n == length) {
-    return HttpHeader{std::move(*line), ""};
-  }
-  auto field = line->substr(0, n);
-  line->erase(0, n + 1);
-  SkipWhiteSpaces(*line);
-  return HttpHeader{std::move(field), std::move(*line)};
+  ToLower(*field);
+  return HttpHeader{std::move(*field), std::move(*line)};
 }
 
-std::optional<std::string> ConcreteHttpParser::ParseLine(std::string& payload) const {
-  int length = payload.length();
-  int n = 0;
-  while (n + 1 < length and (payload[n] != '\r' or payload[n + 1] != '\n')) {
-    n++;
+std::optional<std::string> ConcreteHttpParser::ParseHeaderField(std::string& payload) const {
+  SkipWhiteSpaces(payload);
+  size_t n = 0;
+  size_t length = payload.length();
+  while (n < length and payload[n] != ':') {
+    ++n;
+  }
+  ++n;
+  if (n > length) {
+    return std::nullopt;
+  }
+  std::string s = payload.substr(0, n - 1);
+  payload.erase(0, n);
+  SkipWhiteSpaces(payload);
+  return s;
+}
+
+std::optional<std::string> ConcreteHttpParser::ParseHeaderLine(std::string& payload) const {
+  size_t n = 0;
+  size_t length = payload.length();
+  while (n + 1 < length and not(payload[n] == '\r' and payload[n + 1] == '\n')) {
+    ++n;
   }
   n += 2;
-  if (n >= length) {
+  if (n > length) {
     return std::nullopt;
   }
   std::string s = payload.substr(0, n - 2);
@@ -153,10 +168,10 @@ std::optional<std::string> ConcreteHttpParser::ParseLine(std::string& payload) c
   return s;
 }
 
-std::uint32_t ConcreteHttpParser::ParseContentLength(const HttpHeaders& headers) const {
+size_t ConcreteHttpParser::ParseContentLength(const HttpHeaders& headers) const {
   auto it = headers.find("content-length");
   if (it != headers.end()) {
-    std::uint32_t r = stoul(it->second);
+    size_t r = stoul(it->second);
     return r > 0 ? r : 0;
   }
   return 0;

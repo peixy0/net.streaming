@@ -16,14 +16,16 @@ public:
 
 private:
   void Reset();
-  void ToLower(std::string&) const;
+  bool IsControl(char c) const;
+  bool IsSeparator(char c) const;
   void SkipWhiteSpaces(std::string&) const;
   bool Consume(std::string&, std::string_view) const;
   std::optional<std::string> ParseToken(std::string&) const;
   bool ParseHeaders(std::string&, HttpHeaders&) const;
   std::optional<HttpHeader> ParseHeader(std::string&) const;
-  std::optional<std::string> ParseLine(std::string&) const;
-  std::uint32_t ParseContentLength(const HttpHeaders&) const;
+  std::optional<std::string> ParseHeaderField(std::string&) const;
+  std::optional<std::string> ParseHeaderLine(std::string&) const;
+  size_t ParseContentLength(const HttpHeaders&) const;
 
   std::optional<std::string> method;
   std::optional<std::string> uri;
@@ -32,7 +34,7 @@ private:
   HttpHeaders headers;
   bool headersParsed{false};
   bool headersEndingParsed{false};
-  std::uint32_t bodyRemaining{0};
+  size_t bodyRemaining{0};
 };
 
 }  // namespace network
