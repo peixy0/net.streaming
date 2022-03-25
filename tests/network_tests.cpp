@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
+#include "network.hpp"
 #include "network_mocks.hpp"
 #include "spdlog/common.h"
 
@@ -12,16 +13,18 @@ TEST(HttpLayerTestSuite, whenReceivedValidHttpRequest_itShouldRespondOk) {
   HttpRequest httpRequest;
   httpRequest.method = "get";
   httpRequest.uri = "/";
+  HttpResponse httpResponse;
+  httpResponse.status = HttpStatus::OK;
   auto parserMock = std::make_unique<StrictMock<network::HttpParserMock>>();
   EXPECT_CALL(*parserMock, Parse(_)).WillOnce(Return(httpRequest));
   StrictMock<HttpProcessorMock> processor;
   StrictMock<network::NetworkSenderMock> senderMock;
   EXPECT_CALL(senderMock, Send(_)).WillOnce(SaveArg<0>(&responsePayload));
   auto sut = std::make_unique<HttpLayer>(std::move(parserMock), processor, senderMock);
-  EXPECT_CALL(processor, Process(_));
+  EXPECT_CALL(processor, Process(_)).WillOnce(Return(httpResponse));
   std::string requestPayload("GET / HTTP/1.1\r\n\r\n");
   sut->Receive(requestPayload);
-  EXPECT_TRUE(responsePayload.starts_with("HTTP/1.1 200 OK"));
+  EXPECT_EQ(responsePayload, "HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n");
 }
 
 TEST(HttpParserTestSuite, whenReceivedValidHttpRequest_itShouldParseTheRequest) {

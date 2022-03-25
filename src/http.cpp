@@ -3,6 +3,20 @@
 #include <cctype>
 #include "network.hpp"
 
+namespace {
+
+std::string to_string(network::HttpStatus status) {
+  switch (status) {
+    case network::HttpStatus::OK:
+      return "200 OK";
+    case network::HttpStatus::NotFound:
+      return "404 Not Found";
+  }
+  return "";
+}
+
+}  // namespace
+
 namespace network {
 
 HttpLayer::HttpLayer(std::unique_ptr<HttpParser> parser, HttpProcessor& processor, NetworkSender& sender)
@@ -23,15 +37,14 @@ void HttpLayer::Receive(std::string_view packet) {
     return;
   }
   payloadSize = receivedPayload.size();
-  if (request->uri != "/") {
-    sender.Send("HTTP/1.1 404 Not Found\r\n\r\n");
-    return;
+  auto response = processor.Process(std::move(*request));
+  std::string respPacket = "HTTP/1.1 " + to_string(response.status) + "\r\n";
+  for (const auto& header : response.headers) {
+    respPacket += header.first + ": " + header.second + "\r\n";
   }
-  auto response = processor.Process(*request);
-  sender.Send(
-      "HTTP/1.1 200 OK\r\n"
-      "content-length: " +
-      std::to_string(response.body.length()) + "\r\n\r\n" + response.body);
+  respPacket += "content-length: " + std::to_string(response.body.length()) + "\r\n\r\n";
+  respPacket += response.body;
+  sender.Send(respPacket);
 }
 
 HttpLayerFactory::HttpLayerFactory(HttpProcessor& processor) : processor{processor} {

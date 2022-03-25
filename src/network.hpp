@@ -12,6 +12,8 @@ struct HttpHeader {
 
 using HttpHeaders = std::unordered_map<std::string, std::string>;
 
+enum class HttpStatus { OK, NotFound };
+
 struct HttpRequest {
   std::string method;
   std::string uri;
@@ -21,6 +23,8 @@ struct HttpRequest {
 };
 
 struct HttpResponse {
+  HttpStatus status;
+  HttpHeaders headers;
   std::string body;
 };
 
