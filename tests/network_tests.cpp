@@ -13,7 +13,7 @@ TEST(HttpLayerTestSuite, whenReceivedValidHttpRequest_itShouldRespondOk) {
   HttpRequest httpRequest;
   httpRequest.method = "get";
   httpRequest.uri = "/";
-  PlainHttpResponse httpResponse;
+  PlainTextHttpResponse httpResponse;
   httpResponse.status = HttpStatus::OK;
   auto parserMock = std::make_unique<StrictMock<network::HttpParserMock>>();
   EXPECT_CALL(*parserMock, Parse(_)).WillOnce(Return(httpRequest));
@@ -24,7 +24,7 @@ TEST(HttpLayerTestSuite, whenReceivedValidHttpRequest_itShouldRespondOk) {
   EXPECT_CALL(processor, Process(_)).WillOnce(Return(httpResponse));
   std::string requestPayload("GET / HTTP/1.1\r\n\r\n");
   sut->Receive(requestPayload);
-  EXPECT_EQ(responsePayload, "HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n");
+  EXPECT_EQ(responsePayload, "HTTP/1.1 200 OK\r\ncontent-type: text/plain;charset=utf-8\r\ncontent-length: 0\r\n\r\n");
 }
 
 TEST(HttpParserTestSuite, whenReceivedValidHttpRequest_itShouldParseTheRequest) {

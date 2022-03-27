@@ -24,11 +24,9 @@ namespace network {
 HttpResponseVisitor::HttpResponseVisitor(NetworkSender& sender) : sender{sender} {
 }
 
-void HttpResponseVisitor::operator()(const PlainHttpResponse& response) const {
+void HttpResponseVisitor::operator()(const PlainTextHttpResponse& response) const {
   std::string respPacket = "HTTP/1.1 " + to_string(response.status) + "\r\n";
-  for (const auto& header : response.headers) {
-    respPacket += header.first + ": " + header.second + "\r\n";
-  }
+  respPacket += "content-type: text/plain;charset=utf-8\r\n";
   respPacket += "content-length: " + std::to_string(response.body.length()) + "\r\n\r\n";
   respPacket += response.body;
   sender.Send(std::move(respPacket));
@@ -45,6 +43,7 @@ void HttpResponseVisitor::operator()(const FileHttpResponse& response) const {
   fstat(fd, &statbuf);
   size_t size = statbuf.st_size;
   std::string respPacket = "HTTP/1.1" + to_string(HttpStatus::OK) + "\r\n";
+  respPacket += "content-type: " + response.contentType + "\r\n";
   respPacket += "content-length: " + std::to_string(size) + "\r\n\r\n";
   sender.Send(respPacket);
   sender.SendFile(fd, size);

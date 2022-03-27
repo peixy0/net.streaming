@@ -17,17 +17,15 @@ AppLayer::AppLayer() {
 }
 
 network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
-  spdlog::debug("http request {} {} {}", req.method, req.uri, req.version);
+  spdlog::debug("app received request {} {} {}", req.method, req.uri, req.version);
   for (const auto& [field, value] : req.headers) {
-    spdlog::debug("http header {}: {}", field, value);
+    spdlog::debug("app received header {}: {}", field, value);
   }
   if (req.uri == "/") {
-    network::HttpHeaders headers;
-    headers.emplace("content-type", "application/json");
     std::shared_lock l{mutex};
-    return network::PlainHttpResponse{network::HttpStatus::OK, std::move(headers), *content};
+    return network::PlainTextHttpResponse{network::HttpStatus::OK, *content};
   }
-  return network::PlainHttpResponse{network::HttpStatus::NotFound, {}, ""};
+  return network::PlainTextHttpResponse{network::HttpStatus::NotFound, ""};
 }
 
 void AppLayer::StartDaemon() {

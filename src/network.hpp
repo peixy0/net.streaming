@@ -23,17 +23,17 @@ struct HttpRequest {
   std::string body;
 };
 
-struct PlainHttpResponse {
+struct PlainTextHttpResponse {
   HttpStatus status;
-  HttpHeaders headers;
   std::string body;
 };
 
 struct FileHttpResponse {
+  std::string contentType;
   std::string path;
 };
 
-using HttpResponse = std::variant<PlainHttpResponse, FileHttpResponse>;
+using HttpResponse = std::variant<PlainTextHttpResponse, FileHttpResponse>;
 
 class HttpProcessor {
 public:
