@@ -30,7 +30,7 @@ private:
   std::optional<HttpHeader> ParseHeader(std::string&) const;
   std::optional<std::string> ParseHeaderField(std::string&) const;
   std::optional<std::string> ParseHeaderLine(std::string&) const;
-  size_t ParseContentLength(const HttpHeaders&) const;
+  size_t FindContentLength(const HttpHeaders&) const;
 
   std::optional<std::string> method;
   std::optional<std::string> uri;

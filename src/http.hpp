@@ -17,7 +17,7 @@ private:
 
 class HttpLayer : public network::TcpReceiver {
 public:
-  HttpLayer(std::unique_ptr<HttpParser> parser, HttpProcessor& processor, TcpSender&);
+  HttpLayer(const HttpOptions&, std::unique_ptr<HttpParser>, HttpProcessor&, TcpSender&);
   HttpLayer(const HttpLayer&) = delete;
   HttpLayer(HttpLayer&&) = delete;
   HttpLayer& operator=(const HttpLayer&) = delete;
@@ -26,16 +26,17 @@ public:
   void Receive(std::string_view) override;
 
 private:
+  HttpOptions options;
   std::unique_ptr<HttpParser> parser;
   HttpProcessor& processor;
   TcpSender& sender;
   std::string receivedPayload;
-  size_t payloadSize{0};
+  size_t receivedPayloadSize{0};
 };
 
 class HttpLayerFactory : public network::TcpReceiverFactory {
 public:
-  explicit HttpLayerFactory(HttpProcessor&);
+  HttpLayerFactory(const HttpOptions&, HttpProcessor&);
   HttpLayerFactory(const HttpLayerFactory&) = delete;
   HttpLayerFactory(HttpLayerFactory&&) = delete;
   HttpLayerFactory& operator=(const HttpLayerFactory&) = delete;
@@ -44,6 +45,7 @@ public:
   std::unique_ptr<network::TcpReceiver> Create(TcpSender&) const override;
 
 private:
+  HttpOptions options;
   HttpProcessor& processor;
 };
 

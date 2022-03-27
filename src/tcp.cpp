@@ -8,7 +8,6 @@
 #include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <chrono>
 
 namespace network {
 
@@ -44,7 +43,7 @@ void ConcreteTcpSender::Send(std::string_view buf) {
 void ConcreteTcpSender::SendFile(int fd, size_t size) {
   size_t sent = 0;
   while (sent < size) {
-    int n = sendfile(peerDescriptor, fd, nullptr, size);
+    int n = sendfile(peerDescriptor, fd, nullptr, size - sent);
     if (n < 0) {
       if (errno == EAGAIN or errno == EWOULDBLOCK) {
         continue;
@@ -63,38 +62,21 @@ void ConcreteTcpSender::Close() {
   }
 }
 
-TcpConnectionContext::TcpConnectionContext(int fd, std::unique_ptr<TcpReceiver> upperlayer,
+TcpConnectionContext::TcpConnectionContext(int fd, std::unique_ptr<TcpReceiver> receiver,
                                            std::unique_ptr<TcpSender> sender)
-    : fd{fd}, upperlayer{std::move(upperlayer)}, sender{std::move(sender)} {
+    : fd{fd}, receiver{std::move(receiver)}, sender{std::move(sender)} {
   spdlog::debug("tcp connection established: {}", fd);
-  UpdateTimeout();
 }
 
 TcpConnectionContext::~TcpConnectionContext() {
   spdlog::debug("tcp connection closed: {}", fd);
 }
 
-TcpReceiver& TcpConnectionContext::GetUpperlayer() {
-  return *upperlayer;
+TcpReceiver& TcpConnectionContext::GetReceiver() {
+  return *receiver;
 }
 
-TcpSender& TcpConnectionContext::GetTcpSender() {
-  return *sender;
-}
-
-int TcpConnectionContext::GetTimeout() const {
-  auto d = expire - std::chrono::system_clock::now();
-  auto s = std::chrono::duration_cast<std::chrono::seconds>(d);
-  auto t = s.count();
-  return t > 0 ? t : 0;
-}
-
-void TcpConnectionContext::UpdateTimeout() {
-  using namespace std::chrono_literals;
-  expire = std::chrono::system_clock::now() + 20s;
-}
-
-TcpLayer::TcpLayer(TcpReceiverFactory& networkLayerFactory) : networkLayerFactory{networkLayerFactory} {
+TcpLayer::TcpLayer(TcpReceiverFactory& receiverFactory) : receiverFactory{receiverFactory} {
 }
 
 TcpLayer::~TcpLayer() {
@@ -148,8 +130,7 @@ void TcpLayer::StartLoop() {
   constexpr int maxEvents = 32;
   epoll_event events[maxEvents];
   while (true) {
-    int t = FindMostRecentTimeout();
-    int n = epoll_wait(epollDescriptor, events, maxEvents, t);
+    int n = epoll_wait(epollDescriptor, events, maxEvents, -1);
     for (int i = 0; i < n; i++) {
       if (events[i].data.fd == localDescriptor) {
         SetupPeer();
@@ -160,31 +141,7 @@ void TcpLayer::StartLoop() {
         continue;
       }
     }
-    PurgeExpiredConnections();
   }
-}
-
-void TcpLayer::PurgeExpiredConnections() {
-  for (auto& [_, context] : connections) {
-    if (context->GetTimeout() <= 0) {
-      context->GetTcpSender().Close();
-    }
-  }
-}
-
-int TcpLayer::FindMostRecentTimeout() {
-  if (connections.empty()) {
-    return -1;
-  }
-  auto it = connections.begin();
-  int r = std::get<std::unique_ptr<TcpConnectionContext>>(*it)->GetTimeout();
-  while (++it != connections.end()) {
-    int t = std::get<std::unique_ptr<TcpConnectionContext>>(*it)->GetTimeout();
-    if (r > t) {
-      r = t;
-    }
-  }
-  return r;
 }
 
 void TcpLayer::SetupPeer() {
@@ -203,8 +160,8 @@ void TcpLayer::SetupPeer() {
   event.data.fd = s;
   epoll_ctl(epollDescriptor, EPOLL_CTL_ADD, s, &event);
   auto sender = std::make_unique<ConcreteTcpSender>(s);
-  auto upperlayer = networkLayerFactory.Create(*sender);
-  auto context = std::make_unique<TcpConnectionContext>(s, std::move(upperlayer), std::move(sender));
+  auto receiver = receiverFactory.Create(*sender);
+  auto context = std::make_unique<TcpConnectionContext>(s, std::move(receiver), std::move(sender));
   connections.emplace(s, std::move(context));
 }
 
@@ -236,12 +193,12 @@ void TcpLayer::ReadFromPeer(int peerDescriptor) {
     return;
   }
   auto& context = std::get<std::unique_ptr<TcpConnectionContext>>(*it);
-  auto& upperlayer = context->GetUpperlayer();
-  upperlayer.Receive({buf, buf + r});
+  auto& receiver = context->GetReceiver();
+  receiver.Receive({buf, buf + r});
 }
 
-Tcp4Layer::Tcp4Layer(std::string_view host, std::uint16_t port, TcpReceiverFactory& networkLayerFactory)
-    : TcpLayer{networkLayerFactory}, host{host}, port{port} {
+Tcp4Layer::Tcp4Layer(std::string_view host, std::uint16_t port, TcpReceiverFactory& receiverFactory)
+    : TcpLayer{receiverFactory}, host{host}, port{port} {
 }
 
 int Tcp4Layer::CreateSocket() {

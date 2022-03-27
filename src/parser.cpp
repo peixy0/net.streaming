@@ -50,7 +50,7 @@ std::optional<HttpRequest> ConcreteHttpParser::Parse(std::string& payload) {
       return std::nullopt;
     }
   }
-  bodyRemaining = ParseContentLength(headers);
+  bodyRemaining = FindContentLength(headers);
   if (payload.length() < bodyRemaining) {
     return std::nullopt;
   }
@@ -168,7 +168,7 @@ std::optional<std::string> ConcreteHttpParser::ParseHeaderLine(std::string& payl
   return s;
 }
 
-size_t ConcreteHttpParser::ParseContentLength(const HttpHeaders& headers) const {
+size_t ConcreteHttpParser::FindContentLength(const HttpHeaders& headers) const {
   auto it = headers.find("content-length");
   if (it != headers.end()) {
     size_t r = stoul(it->second);

@@ -30,6 +30,10 @@ struct HttpHeader {
   std::string value;
 };
 
+struct HttpOptions {
+  size_t maxPayloadSize;
+};
+
 using HttpHeaders = std::unordered_map<std::string, std::string>;
 
 enum class HttpStatus { OK, NotFound };

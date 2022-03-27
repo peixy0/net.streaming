@@ -10,6 +10,8 @@ namespace network {
 
 TEST(HttpLayerTestSuite, whenReceivedValidHttpRequest_itShouldRespondOk) {
   std::string responsePayload;
+  HttpOptions options;
+  options.maxPayloadSize = 1 << 20;
   HttpRequest httpRequest;
   httpRequest.method = "get";
   httpRequest.uri = "/";
@@ -20,7 +22,7 @@ TEST(HttpLayerTestSuite, whenReceivedValidHttpRequest_itShouldRespondOk) {
   StrictMock<HttpProcessorMock> processor;
   StrictMock<network::TcpSenderMock> senderMock;
   EXPECT_CALL(senderMock, Send(_)).WillOnce(SaveArg<0>(&responsePayload));
-  auto sut = std::make_unique<HttpLayer>(std::move(parserMock), processor, senderMock);
+  auto sut = std::make_unique<HttpLayer>(options, std::move(parserMock), processor, senderMock);
   EXPECT_CALL(processor, Process(_)).WillOnce(Return(httpResponse));
   std::string requestPayload("GET / HTTP/1.1\r\n\r\n");
   sut->Receive(requestPayload);

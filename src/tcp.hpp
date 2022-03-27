@@ -32,16 +32,12 @@ public:
   TcpConnectionContext& operator=(const TcpConnectionContext&) = delete;
   TcpConnectionContext& operator=(TcpConnectionContext&&) = delete;
 
-  TcpReceiver& GetUpperlayer();
-  TcpSender& GetTcpSender();
-  int GetTimeout() const;
-  void UpdateTimeout();
+  TcpReceiver& GetReceiver();
 
 private:
   int fd;
-  std::unique_ptr<TcpReceiver> upperlayer;
+  std::unique_ptr<TcpReceiver> receiver;
   std::unique_ptr<TcpSender> sender;
-  std::chrono::system_clock::time_point expire;
 };
 
 class TcpLayer {
@@ -65,12 +61,12 @@ private:
   void ClosePeer(int);
   void ReadFromPeer(int);
   void PurgeExpiredConnections();
-  int FindMostRecentTimeout();
+  int FindMostRecentTimeout() const;
 
   int localDescriptor{-1};
   int epollDescriptor{-1};
   std::unordered_map<int, std::unique_ptr<TcpConnectionContext>> connections;
-  TcpReceiverFactory& networkLayerFactory;
+  TcpReceiverFactory& receiverFactory;
 };
 
 class Tcp4Layer : public TcpLayer {
