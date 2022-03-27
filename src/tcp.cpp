@@ -12,7 +12,7 @@
 
 namespace network {
 
-TcpSender::TcpSender(int s) : peerDescriptor{s} {
+ConcreteTcpSender::ConcreteTcpSender(int s) : peerDescriptor{s} {
   int flag = 0;
   int r = setsockopt(peerDescriptor, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof flag);
   if (r < 0) {
@@ -20,11 +20,11 @@ TcpSender::TcpSender(int s) : peerDescriptor{s} {
   }
 }
 
-TcpSender::~TcpSender() {
+ConcreteTcpSender::~ConcreteTcpSender() {
   Close();
 }
 
-void TcpSender::Send(std::string_view buf) {
+void ConcreteTcpSender::Send(std::string_view buf) {
   size_t sent = 0;
   size_t size = buf.length();
   const std::string& s{buf.cbegin(), buf.cend()};
@@ -41,7 +41,7 @@ void TcpSender::Send(std::string_view buf) {
   }
 }
 
-void TcpSender::SendFile(int fd, size_t size) {
+void ConcreteTcpSender::SendFile(int fd, size_t size) {
   size_t sent = 0;
   while (sent < size) {
     int n = sendfile(peerDescriptor, fd, nullptr, size);
@@ -56,14 +56,14 @@ void TcpSender::SendFile(int fd, size_t size) {
   }
 }
 
-void TcpSender::Close() {
+void ConcreteTcpSender::Close() {
   if (peerDescriptor > 0) {
     shutdown(peerDescriptor, SHUT_RDWR);
     peerDescriptor = -1;
   }
 }
 
-TcpConnectionContext::TcpConnectionContext(int fd, std::unique_ptr<NetworkLayer> upperlayer,
+TcpConnectionContext::TcpConnectionContext(int fd, std::unique_ptr<TcpReceiver> upperlayer,
                                            std::unique_ptr<TcpSender> sender)
     : fd{fd}, upperlayer{std::move(upperlayer)}, sender{std::move(sender)} {
   spdlog::debug("tcp connection established: {}", fd);
@@ -74,7 +74,7 @@ TcpConnectionContext::~TcpConnectionContext() {
   spdlog::debug("tcp connection closed: {}", fd);
 }
 
-NetworkLayer& TcpConnectionContext::GetUpperlayer() {
+TcpReceiver& TcpConnectionContext::GetUpperlayer() {
   return *upperlayer;
 }
 
@@ -94,7 +94,7 @@ void TcpConnectionContext::UpdateTimeout() {
   expire = std::chrono::system_clock::now() + 20s;
 }
 
-TcpLayer::TcpLayer(NetworkLayerFactory& networkLayerFactory) : networkLayerFactory{networkLayerFactory} {
+TcpLayer::TcpLayer(TcpReceiverFactory& networkLayerFactory) : networkLayerFactory{networkLayerFactory} {
 }
 
 TcpLayer::~TcpLayer() {
@@ -202,7 +202,7 @@ void TcpLayer::SetupPeer() {
   event.events = EPOLLIN;
   event.data.fd = s;
   epoll_ctl(epollDescriptor, EPOLL_CTL_ADD, s, &event);
-  auto sender = std::make_unique<TcpSender>(s);
+  auto sender = std::make_unique<ConcreteTcpSender>(s);
   auto upperlayer = networkLayerFactory.Create(*sender);
   auto context = std::make_unique<TcpConnectionContext>(s, std::move(upperlayer), std::move(sender));
   connections.emplace(s, std::move(context));
@@ -240,7 +240,7 @@ void TcpLayer::ReadFromPeer(int peerDescriptor) {
   upperlayer.Receive({buf, buf + r});
 }
 
-Tcp4Layer::Tcp4Layer(std::string_view host, std::uint16_t port, NetworkLayerFactory& networkLayerFactory)
+Tcp4Layer::Tcp4Layer(std::string_view host, std::uint16_t port, TcpReceiverFactory& networkLayerFactory)
     : TcpLayer{networkLayerFactory}, host{host}, port{port} {
 }
 

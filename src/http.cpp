@@ -21,7 +21,7 @@ std::string to_string(network::HttpStatus status) {
 
 namespace network {
 
-HttpResponseVisitor::HttpResponseVisitor(NetworkSender& sender) : sender{sender} {
+HttpResponseVisitor::HttpResponseVisitor(TcpSender& sender) : sender{sender} {
 }
 
 void HttpResponseVisitor::operator()(const PlainTextHttpResponse& response) const {
@@ -50,7 +50,7 @@ void HttpResponseVisitor::operator()(const FileHttpResponse& response) const {
   close(fd);
 }
 
-HttpLayer::HttpLayer(std::unique_ptr<HttpParser> parser, HttpProcessor& processor, NetworkSender& sender)
+HttpLayer::HttpLayer(std::unique_ptr<HttpParser> parser, HttpProcessor& processor, TcpSender& sender)
     : parser{std::move(parser)}, processor{processor}, sender{sender} {
 }
 
@@ -75,7 +75,7 @@ void HttpLayer::Receive(std::string_view packet) {
 HttpLayerFactory::HttpLayerFactory(HttpProcessor& processor) : processor{processor} {
 }
 
-std::unique_ptr<network::NetworkLayer> HttpLayerFactory::Create(NetworkSender& sender) const {
+std::unique_ptr<network::TcpReceiver> HttpLayerFactory::Create(TcpSender& sender) const {
   auto parser = std::make_unique<ConcreteHttpParser>();
   return std::make_unique<HttpLayer>(std::move(parser), processor, sender);
 }

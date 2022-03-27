@@ -14,7 +14,7 @@ public:
   MOCK_METHOD(HttpResponse, Process, (const HttpRequest&), (override));
 };
 
-class NetworkSenderMock : public NetworkSender {
+class TcpSenderMock : public TcpSender {
 public:
   MOCK_METHOD(void, Send, (std::string_view), (override));
   MOCK_METHOD(void, SendFile, (int, size_t), (override));

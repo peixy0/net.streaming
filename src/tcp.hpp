@@ -6,14 +6,14 @@
 
 namespace network {
 
-class TcpSender : public NetworkSender {
+class ConcreteTcpSender : public TcpSender {
 public:
-  explicit TcpSender(int socket);
-  TcpSender(const TcpSender&) = delete;
-  TcpSender(TcpSender&&) = delete;
-  TcpSender& operator=(const TcpSender&) = delete;
-  TcpSender& operator=(TcpSender&&) = delete;
-  ~TcpSender();
+  explicit ConcreteTcpSender(int socket);
+  ConcreteTcpSender(const ConcreteTcpSender&) = delete;
+  ConcreteTcpSender(ConcreteTcpSender&&) = delete;
+  ConcreteTcpSender& operator=(const ConcreteTcpSender&) = delete;
+  ConcreteTcpSender& operator=(ConcreteTcpSender&&) = delete;
+  ~ConcreteTcpSender();
 
   void Send(std::string_view) override;
   void SendFile(int, size_t) override;
@@ -25,28 +25,28 @@ private:
 
 class TcpConnectionContext {
 public:
-  TcpConnectionContext(int, std::unique_ptr<NetworkLayer>, std::unique_ptr<TcpSender>);
+  TcpConnectionContext(int, std::unique_ptr<TcpReceiver>, std::unique_ptr<TcpSender>);
   ~TcpConnectionContext();
   TcpConnectionContext(const TcpConnectionContext&) = delete;
   TcpConnectionContext(TcpConnectionContext&&) = delete;
   TcpConnectionContext& operator=(const TcpConnectionContext&) = delete;
   TcpConnectionContext& operator=(TcpConnectionContext&&) = delete;
 
-  NetworkLayer& GetUpperlayer();
+  TcpReceiver& GetUpperlayer();
   TcpSender& GetTcpSender();
   int GetTimeout() const;
   void UpdateTimeout();
 
 private:
   int fd;
-  std::unique_ptr<NetworkLayer> upperlayer;
+  std::unique_ptr<TcpReceiver> upperlayer;
   std::unique_ptr<TcpSender> sender;
   std::chrono::system_clock::time_point expire;
 };
 
 class TcpLayer {
 public:
-  explicit TcpLayer(NetworkLayerFactory&);
+  explicit TcpLayer(TcpReceiverFactory&);
   TcpLayer(const TcpLayer&) = delete;
   TcpLayer(TcpLayer&&) = delete;
   TcpLayer& operator=(const TcpLayer&) = delete;
@@ -70,12 +70,12 @@ private:
   int localDescriptor{-1};
   int epollDescriptor{-1};
   std::unordered_map<int, std::unique_ptr<TcpConnectionContext>> connections;
-  NetworkLayerFactory& networkLayerFactory;
+  TcpReceiverFactory& networkLayerFactory;
 };
 
 class Tcp4Layer : public TcpLayer {
 public:
-  Tcp4Layer(std::string_view, std::uint16_t, NetworkLayerFactory&);
+  Tcp4Layer(std::string_view, std::uint16_t, TcpReceiverFactory&);
 
 protected:
   int CreateSocket() override;

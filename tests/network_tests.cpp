@@ -18,7 +18,7 @@ TEST(HttpLayerTestSuite, whenReceivedValidHttpRequest_itShouldRespondOk) {
   auto parserMock = std::make_unique<StrictMock<network::HttpParserMock>>();
   EXPECT_CALL(*parserMock, Parse(_)).WillOnce(Return(httpRequest));
   StrictMock<HttpProcessorMock> processor;
-  StrictMock<network::NetworkSenderMock> senderMock;
+  StrictMock<network::TcpSenderMock> senderMock;
   EXPECT_CALL(senderMock, Send(_)).WillOnce(SaveArg<0>(&responsePayload));
   auto sut = std::make_unique<HttpLayer>(std::move(parserMock), processor, senderMock);
   EXPECT_CALL(processor, Process(_)).WillOnce(Return(httpResponse));
