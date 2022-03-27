@@ -35,14 +35,16 @@ void HttpResponseVisitor::operator()(const PlainTextHttpResponse& response) cons
 void HttpResponseVisitor::operator()(const FileHttpResponse& response) const {
   int fd = open(response.path.c_str(), O_RDONLY);
   if (fd < 0) {
-    spdlog::error("http open(): {}", strerror(errno));
-    sender.Send("HTTP/1.1" + to_string(HttpStatus::NotFound) + "\r\n\r\n");
+    spdlog::error("http open(\"{}\"): {}", response.path, strerror(errno));
+    std::string respPacket = "HTTP/1.1 " + to_string(HttpStatus::NotFound) + "\r\n";
+    respPacket += "content-length: 0\r\n\r\n";
+    sender.Send(respPacket);
     return;
   }
   struct stat statbuf;
   fstat(fd, &statbuf);
   size_t size = statbuf.st_size;
-  std::string respPacket = "HTTP/1.1" + to_string(HttpStatus::OK) + "\r\n";
+  std::string respPacket = "HTTP/1.1 " + to_string(HttpStatus::OK) + "\r\n";
   respPacket += "content-type: " + response.contentType + "\r\n";
   respPacket += "content-length: " + std::to_string(size) + "\r\n\r\n";
   sender.Send(respPacket);

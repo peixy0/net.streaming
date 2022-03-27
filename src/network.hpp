@@ -48,8 +48,8 @@ struct PlainTextHttpResponse {
 };
 
 struct FileHttpResponse {
-  std::string contentType;
   std::string path;
+  std::string contentType;
 };
 
 using HttpResponse = std::variant<PlainTextHttpResponse, FileHttpResponse>;

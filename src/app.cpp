@@ -13,7 +13,7 @@
 namespace application {
 
 AppLayer::AppLayer() {
-  StartDaemon();
+  StartBtmpLoaderDaemon();
 }
 
 network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
@@ -21,18 +21,21 @@ network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
   for (const auto& [field, value] : req.headers) {
     spdlog::debug("app received header {}: {}", field, value);
   }
-  if (req.uri == "/") {
-    std::shared_lock l{mutex};
-    return network::PlainTextHttpResponse{network::HttpStatus::OK, *content};
+  if (req.uri == "/lastb") {
+    std::shared_lock l{btmpMutex};
+    return network::PlainTextHttpResponse{network::HttpStatus::OK, *btmpContent};
+  }
+  if (req.uri == "/nginx.access") {
+    return network::FileHttpResponse{"/var/log/nginx/access.log", "text/plain;charset=utf-8"};
   }
   return network::PlainTextHttpResponse{network::HttpStatus::NotFound, ""};
 }
 
-void AppLayer::StartDaemon() {
-  daemon = std::thread{[this] { DaemonTask(); }};
+void AppLayer::StartBtmpLoaderDaemon() {
+  daemon = std::thread{[this] { LoadBtmpContent(); }};
 }
 
-void AppLayer::DaemonTask() {
+void AppLayer::LoadBtmpContent() {
   while (true) {
     std::vector<utmp> entries;
     utmpname("/var/log/btmp");
@@ -65,8 +68,8 @@ void AppLayer::DaemonTask() {
 
     auto s = std::make_shared<std::string>(result);
     {
-      std::unique_lock l{mutex};
-      content = s;
+      std::unique_lock l{btmpMutex};
+      btmpContent = s;
     }
     {
       using namespace std::literals::chrono_literals;

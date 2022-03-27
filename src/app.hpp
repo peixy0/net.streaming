@@ -12,13 +12,13 @@ public:
   network::HttpResponse Process(const network::HttpRequest&) override;
 
 private:
-  void StartDaemon();
-  void DaemonTask();
+  void StartBtmpLoaderDaemon();
+  void LoadBtmpContent();
 
   std::atomic<bool> running = true;
   std::thread daemon;
-  std::shared_mutex mutex;
-  std::shared_ptr<std::string> content = std::make_shared<std::string>("");
+  std::shared_mutex btmpMutex;
+  std::shared_ptr<std::string> btmpContent = std::make_shared<std::string>("");
 };
 
 }  // namespace application
