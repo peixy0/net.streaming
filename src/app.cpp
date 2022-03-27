@@ -16,11 +16,6 @@ AppLayer::AppLayer() {
   StartDaemon();
 }
 
-AppLayer::~AppLayer() {
-  running = false;
-  daemon.join();
-}
-
 network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
   spdlog::debug("http request {} {} {}", req.method, req.uri, req.version);
   for (const auto& [field, value] : req.headers) {
@@ -41,9 +36,6 @@ void AppLayer::StartDaemon() {
 
 void AppLayer::DaemonTask() {
   while (true) {
-    if (not running) {
-      return;
-    }
     std::vector<utmp> entries;
     utmpname("/var/log/btmp");
     setutent();

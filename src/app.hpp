@@ -8,7 +8,7 @@ namespace application {
 class AppLayer : public network::HttpProcessor {
 public:
   AppLayer();
-  ~AppLayer();
+  ~AppLayer() = default;
   network::HttpResponse Process(const network::HttpRequest&) override;
 
 private:
