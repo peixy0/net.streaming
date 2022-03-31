@@ -6,11 +6,19 @@
 
 namespace network {
 
+class TcpSenderSupervisor {
+public:
+  virtual ~TcpSenderSupervisor() = default;
+  virtual void MarkSenderPending(int) = 0;
+  virtual void UnmarkSenderPending(int) = 0;
+};
+
 class TcpSender {
 public:
   virtual ~TcpSender() = default;
   virtual void Send(std::string_view) = 0;
-  virtual void SendFile(int, size_t) = 0;
+  virtual void SendFile(std::string_view) = 0;
+  virtual void SendBuffered() = 0;
   virtual void Close() = 0;
 };
 

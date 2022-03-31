@@ -44,12 +44,12 @@ void HttpResponseVisitor::operator()(const FileHttpResponse& response) const {
   struct stat statbuf;
   fstat(fd, &statbuf);
   size_t size = statbuf.st_size;
+  close(fd);
   std::string respPayload = "HTTP/1.1 " + to_string(HttpStatus::OK) + "\r\n";
   respPayload += "content-type: " + response.contentType + "\r\n";
   respPayload += "content-length: " + std::to_string(size) + "\r\n\r\n";
   sender.Send(std::move(respPayload));
-  sender.SendFile(fd, size);
-  close(fd);
+  sender.SendFile(response.path);
 }
 
 HttpLayer::HttpLayer(const HttpOptions& options, std::unique_ptr<HttpParser> parser, HttpProcessor& processor,

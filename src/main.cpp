@@ -10,7 +10,7 @@ int main(int argc, char* argv[]) {
   }
   auto* host = argv[1];
   std::uint16_t port = std::atoi(argv[2]);
-  spdlog::set_level(spdlog::level::info);
+  spdlog::set_level(spdlog::level::warn);
   application::AppLayer app;
   network::HttpOptions options;
   options.maxPayloadSize = 1 << 20;

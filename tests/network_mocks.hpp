@@ -17,7 +17,8 @@ public:
 class TcpSenderMock : public TcpSender {
 public:
   MOCK_METHOD(void, Send, (std::string_view), (override));
-  MOCK_METHOD(void, SendFile, (int, size_t), (override));
+  MOCK_METHOD(void, SendFile, (std::string_view), (override));
+  MOCK_METHOD(void, SendBuffered, (), (override));
   MOCK_METHOD(void, Close, (), (override));
 };
 
