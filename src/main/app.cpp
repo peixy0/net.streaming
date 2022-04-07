@@ -5,7 +5,6 @@
 #include <ctime>
 #include <iomanip>
 #include <mutex>
-#include <nlohmann/json.hpp>
 #include <thread>
 #include <vector>
 #include "network.hpp"

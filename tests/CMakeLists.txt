@@ -16,7 +16,14 @@ target_link_libraries(
   gtest_main
   gmock
   spdlog
-  core
+  net.core
+)
+
+set_target_properties(
+  all_tests
+  PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY
+  "${CMAKE_BINARY_DIR}"
 )
 
 gtest_discover_tests(all_tests)

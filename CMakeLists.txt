@@ -8,7 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_options(-Wall -Wextra -pedantic -Werror)
 
 option(BUILD_STATIC "Build static flag" OFF)
-option(BUILD_TESTS "Build tests" OFF)
+option(BUILD_TESTS "Build tests" ON)
 option(BUILD_WITH_ADDRESS_SANITIZER "Build with address sanitize flags" OFF)
 option(BUILD_WITH_MEMORY_SANITIZER "Build with memory sanitize flags" OFF)
 
@@ -39,37 +39,7 @@ project(
   VERSION 1.0
 )
 
-add_library(
-  core
-  src/app.cpp
-  src/app.hpp
-  src/http.cpp
-  src/http.hpp
-  src/network.hpp
-  src/parser.cpp
-  src/parser.hpp
-  src/tcp.cpp
-  src/tcp.hpp
-)
-
-target_link_libraries(
-  core
-  PRIVATE
-  spdlog
-  nlohmann_json
-)
-
-add_executable(
-  net
-  src/main.cpp
-)
-
-target_link_libraries(
-  net
-  PRIVATE
-  core
-  spdlog
-)
+add_subdirectory(src)
 
 add_custom_target(
   format
