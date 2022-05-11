@@ -14,7 +14,7 @@ option(BUILD_WITH_MEMORY_SANITIZER "Build with memory sanitize flags" OFF)
 
 if (BUILD_STATIC)
   add_compile_options(-static)
-  add_link_options(-static)
+  add_link_options(-static -Wl,--whole-archive -lpthread -Wl,--no-whole-archive)
 endif()
 
 if (BUILD_WITH_ADDRESS_SANITIZER)
