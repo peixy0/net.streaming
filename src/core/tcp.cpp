@@ -7,7 +7,6 @@
 #include <sys/epoll.h>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 namespace network {
@@ -36,26 +35,17 @@ bool TcpSendBuffer::Done() const {
   return size == 0;
 }
 
-TcpSendFile::TcpSendFile(int peer, std::string_view path_) : peer{peer}, path{path_} {
-  fd = open(path.c_str(), O_RDONLY);
-  if (fd == -1) {
+TcpSendFile::TcpSendFile(int peer, os::File file_) : peer{peer}, file{std::move(file_)} {
+  if (not file.Ok()) {
     size = 0;
     return;
   }
-  struct stat statbuf;
-  fstat(fd, &statbuf);
-  size = statbuf.st_size;
-}
-
-TcpSendFile::~TcpSendFile() {
-  if (fd != -1) {
-    close(fd);
-  }
+  size = file.Size();
 }
 
 void TcpSendFile::Send() {
   while (size > 0) {
-    int n = sendfile(peer, fd, nullptr, size);
+    int n = sendfile(peer, file.Fd(), nullptr, size);
     if (n < 0) {
       if (errno == EAGAIN or errno == EWOULDBLOCK) {
         return;
@@ -110,8 +100,8 @@ void ConcreteTcpSender::Send(std::string_view buf) {
   SendBuffered();
 }
 
-void ConcreteTcpSender::SendFile(std::string_view path) {
-  buffered.emplace_back(std::make_unique<TcpSendFile>(peer, path));
+void ConcreteTcpSender::SendFile(os::File file) {
+  buffered.emplace_back(std::make_unique<TcpSendFile>(peer, std::move(file)));
   SendBuffered();
 }
 

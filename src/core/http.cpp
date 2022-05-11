@@ -1,8 +1,7 @@
 #include "http.hpp"
-#include <fcntl.h>
 #include <spdlog/spdlog.h>
-#include <sys/stat.h>
 #include <cctype>
+#include "file.hpp"
 #include "network.hpp"
 
 namespace {
@@ -33,23 +32,19 @@ void HttpResponseVisitor::operator()(const PlainTextHttpResponse& response) cons
 }
 
 void HttpResponseVisitor::operator()(const FileHttpResponse& response) const {
-  int fd = open(response.path.c_str(), O_RDONLY);
-  if (fd < 0) {
+  os::File file{response.path};
+  if (not file.Ok()) {
     spdlog::error("http open(\"{}\"): {}", response.path, strerror(errno));
     std::string respPayload = "HTTP/1.1 " + to_string(HttpStatus::NotFound) + "\r\n";
     respPayload += "content-length: 0\r\n\r\n";
     sender.Send(std::move(respPayload));
     return;
   }
-  struct stat statbuf;
-  fstat(fd, &statbuf);
-  size_t size = statbuf.st_size;
-  close(fd);
   std::string respPayload = "HTTP/1.1 " + to_string(HttpStatus::OK) + "\r\n";
   respPayload += "content-type: " + response.contentType + "\r\n";
-  respPayload += "content-length: " + std::to_string(size) + "\r\n\r\n";
+  respPayload += "content-length: " + std::to_string(file.Size()) + "\r\n\r\n";
   sender.Send(std::move(respPayload));
-  sender.SendFile(response.path);
+  sender.SendFile(std::move(file));
 }
 
 HttpLayer::HttpLayer(const HttpOptions& options, std::unique_ptr<HttpParser> parser, HttpProcessor& processor,

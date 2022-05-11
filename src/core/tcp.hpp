@@ -28,17 +28,14 @@ private:
 
 class TcpSendFile : public TcpSendOp {
 public:
-  TcpSendFile(int, std::string_view path);
-  ~TcpSendFile() override;
-
+  TcpSendFile(int, os::File file);
   void Send() override;
   bool Done() const override;
 
 private:
   int peer;
-  std::string path;
+  os::File file;
   size_t size;
-  int fd;
 };
 
 class ConcreteTcpSender : public TcpSender {
@@ -51,7 +48,7 @@ public:
   ~ConcreteTcpSender();
 
   void Send(std::string_view) override;
-  void SendFile(std::string_view) override;
+  void SendFile(os::File) override;
   void SendBuffered() override;
   void Close() override;
 

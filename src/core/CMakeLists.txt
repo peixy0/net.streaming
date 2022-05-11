@@ -1,5 +1,7 @@
 add_library(
   net.core
+  file.cpp
+  file.hpp
   http.cpp
   http.hpp
   network.hpp
