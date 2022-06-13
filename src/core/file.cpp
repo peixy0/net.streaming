@@ -7,8 +7,7 @@
 namespace os {
 
 File::File(std::string_view filename) {
-  std::string f{filename.begin(), filename.end()};
-  fd = open(f.c_str(), O_RDONLY);
+  fd = open(filename.data(), O_RDONLY);
   if (Ok()) {
     struct stat statbuf;
     fstat(fd, &statbuf);

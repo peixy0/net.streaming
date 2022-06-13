@@ -32,7 +32,6 @@ if (BUILD_WITH_MEMORY_SANITIZER)
 endif()
 
 add_subdirectory(externals/spdlog)
-add_subdirectory(externals/json)
 
 project(
   net

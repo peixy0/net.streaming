@@ -5,13 +5,13 @@
 #include "tcp.hpp"
 
 int main(int argc, char* argv[]) {
-  if (argc < 3) {
+  if (argc < 4) {
     return -1;
   }
   auto* host = argv[1];
   std::uint16_t port = std::atoi(argv[2]);
-  spdlog::set_level(spdlog::level::warn);
-  application::AppLayer app;
+  spdlog::set_level(spdlog::level::debug);
+  application::AppLayer app{argv[3]};
   network::HttpOptions options;
   options.maxPayloadSize = 1 << 20;
   network::HttpLayerFactory factory{options, app};
