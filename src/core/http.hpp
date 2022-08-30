@@ -30,8 +30,6 @@ private:
   std::unique_ptr<HttpParser> parser;
   HttpProcessor& processor;
   TcpSender& sender;
-  std::string receivedPayload;
-  size_t receivedPayloadSize{0};
 };
 
 class HttpLayerFactory : public network::TcpReceiverFactory {

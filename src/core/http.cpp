@@ -53,19 +53,18 @@ HttpLayer::HttpLayer(const HttpOptions& options, std::unique_ptr<HttpParser> par
 }
 
 void HttpLayer::Receive(std::string_view payload) {
-  receivedPayloadSize += payload.size();
+  parser->Append(payload);
+  size_t receivedPayloadSize = parser->GetLength();
   if (receivedPayloadSize > options.maxPayloadSize) {
     spdlog::error("http received payload exceeds limit");
     sender.Close();
     return;
   }
   spdlog::debug("http received payload: {}", payload);
-  receivedPayload.append(std::move(payload));
-  auto request = parser->Parse(receivedPayload);
+  auto request = parser->Parse();
   if (not request) {
     return;
   }
-  receivedPayloadSize = receivedPayload.size();
   auto response = processor.Process(std::move(*request));
   std::visit(HttpResponseVisitor{sender}, response);
 }

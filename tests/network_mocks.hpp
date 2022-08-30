@@ -4,11 +4,6 @@
 
 namespace network {
 
-class HttpParserMock : public HttpParser {
-public:
-  MOCK_METHOD(std::optional<HttpRequest>, Parse, (std::string&), (override));
-};
-
 class HttpProcessorMock : public HttpProcessor {
 public:
   MOCK_METHOD(HttpResponse, Process, (const HttpRequest&), (override));

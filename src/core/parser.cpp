@@ -12,7 +12,7 @@ void ToLower(std::string& s) {
 
 namespace network {
 
-std::optional<HttpRequest> ConcreteHttpParser::Parse(std::string& payload) {
+std::optional<HttpRequest> ConcreteHttpParser::Parse() {
   if (not method) {
     method = ParseToken(payload);
     if (not method) {
@@ -61,7 +61,17 @@ std::optional<HttpRequest> ConcreteHttpParser::Parse(std::string& payload) {
   return request;
 }
 
+void ConcreteHttpParser::Append(std::string_view received) {
+  receivedLength += received.length();
+  payload.append(received);
+}
+
+size_t ConcreteHttpParser::GetLength() const {
+  return receivedLength;
+}
+
 void ConcreteHttpParser::Reset() {
+  receivedLength = payload.length();
   method.reset();
   uri.reset();
   version.reset();

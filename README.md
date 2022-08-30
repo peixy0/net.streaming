@@ -3,8 +3,8 @@ Simple async HTTP interface written in modern C++
 
 # build
 ```bash
-git clone https://github.com/peixy0/net.system
-cd net.system
+git clone https://github.com/peixy0/net.http
+cd net.http
 mkdir externals
 git clone https://github.com/google/googletest  externals/googletest
 git clone https://github.com/gabime/spdlog externals/spdlog

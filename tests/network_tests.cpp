@@ -8,27 +8,6 @@ using namespace testing;
 
 namespace network {
 
-TEST(HttpLayerTestSuite, whenReceivedValidHttpRequest_itShouldRespondOk) {
-  std::string responsePayload;
-  HttpOptions options;
-  options.maxPayloadSize = 1 << 20;
-  HttpRequest httpRequest;
-  httpRequest.method = "get";
-  httpRequest.uri = "/";
-  PlainTextHttpResponse httpResponse;
-  httpResponse.status = HttpStatus::OK;
-  auto parserMock = std::make_unique<StrictMock<network::HttpParserMock>>();
-  EXPECT_CALL(*parserMock, Parse(_)).WillOnce(Return(httpRequest));
-  StrictMock<HttpProcessorMock> processor;
-  StrictMock<network::TcpSenderMock> senderMock;
-  EXPECT_CALL(senderMock, Send(_)).WillOnce(SaveArg<0>(&responsePayload));
-  auto sut = std::make_unique<HttpLayer>(options, std::move(parserMock), processor, senderMock);
-  EXPECT_CALL(processor, Process(_)).WillOnce(Return(httpResponse));
-  std::string requestPayload("GET / HTTP/1.1\r\n\r\n");
-  sut->Receive(requestPayload);
-  EXPECT_EQ(responsePayload, "HTTP/1.1 200 OK\r\ncontent-type: text/plain;charset=utf-8\r\ncontent-length: 0\r\n\r\n");
-}
-
 TEST(HttpParserTestSuite, whenReceivedValidHttpRequest_itShouldParseTheRequest) {
   spdlog::set_level(spdlog::level::debug);
   auto sut = std::make_unique<ConcreteHttpParser>();
@@ -46,13 +25,34 @@ TEST(HttpParserTestSuite, whenReceivedValidHttpRequest_itShouldParseTheRequest) 
       "Sec-Fetch-Dest: document\r\n"
       "Accept-Encoding: gzip, deflate, br\r\n"
       "Accept-Language: en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7\r\n\r\n"};
-  sut->Parse(p);
-  p += p2;
-  auto req = sut->Parse(p);
+  sut->Append(p);
+  sut->Parse();
+  sut->Append(p2);
+  auto req = sut->Parse();
   ASSERT_TRUE(req);
   ASSERT_EQ(req->method, "get");
   ASSERT_EQ(req->uri, "/");
   ASSERT_EQ(req->version, "HTTP/1.1");
+}
+
+TEST(HttpLayerTestSuite, whenReceivedValidHttpRequest_itShouldRespondOk) {
+  std::string responsePayload;
+  HttpOptions options;
+  options.maxPayloadSize = 1 << 20;
+  HttpRequest httpRequest;
+  httpRequest.method = "get";
+  httpRequest.uri = "/";
+  PlainTextHttpResponse httpResponse;
+  httpResponse.status = HttpStatus::OK;
+  auto parser = std::make_unique<network::ConcreteHttpParser>();
+  StrictMock<HttpProcessorMock> processor;
+  StrictMock<network::TcpSenderMock> senderMock;
+  EXPECT_CALL(senderMock, Send(_)).WillOnce(SaveArg<0>(&responsePayload));
+  auto sut = std::make_unique<HttpLayer>(options, std::move(parser), processor, senderMock);
+  EXPECT_CALL(processor, Process(_)).WillOnce(Return(httpResponse));
+  std::string requestPayload("GET / HTTP/1.1\r\n\r\n");
+  sut->Receive(requestPayload);
+  EXPECT_EQ(responsePayload, "HTTP/1.1 200 OK\r\ncontent-type: text/plain;charset=utf-8\r\ncontent-length: 0\r\n\r\n");
 }
 
 }  // namespace network

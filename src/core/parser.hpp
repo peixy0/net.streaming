@@ -7,7 +7,9 @@ namespace network {
 class HttpParser {
 public:
   virtual ~HttpParser() = default;
-  virtual std::optional<HttpRequest> Parse(std::string&) = 0;
+  virtual std::optional<HttpRequest> Parse() = 0;
+  virtual void Append(std::string_view) = 0;
+  virtual size_t GetLength() const = 0;
 };
 
 class ConcreteHttpParser : public HttpParser {
@@ -19,7 +21,9 @@ public:
   ConcreteHttpParser& operator=(ConcreteHttpParser&&) = delete;
   ~ConcreteHttpParser() = default;
 
-  std::optional<HttpRequest> Parse(std::string&);
+  std::optional<HttpRequest> Parse() override;
+  void Append(std::string_view) override;
+  size_t GetLength() const override;
 
 private:
   void Reset();
@@ -32,6 +36,8 @@ private:
   std::optional<std::string> ParseHeaderLine(std::string&) const;
   size_t FindContentLength(const HttpHeaders&) const;
 
+  std::string payload;
+  size_t receivedLength{0};
   std::optional<std::string> method;
   std::optional<std::string> uri;
   std::optional<std::string> version;
