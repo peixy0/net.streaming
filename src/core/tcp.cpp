@@ -242,8 +242,7 @@ void TcpLayer::SetupPeer() {
 
   auto sender = std::make_unique<ConcreteTcpSender>(s, *this);
   auto receiver = receiverFactory.Create(*sender);
-  auto context = std::make_unique<TcpConnectionContext>(s, std::move(receiver), std::move(sender));
-  connections.emplace(s, std::move(context));
+  connections.try_emplace(s, s, std::move(receiver), std::move(sender));
 }
 
 void TcpLayer::ClosePeer(int peerDescriptor) {
@@ -273,8 +272,8 @@ void TcpLayer::ReadFromPeer(int peerDescriptor) {
     ClosePeer(peerDescriptor);
     return;
   }
-  auto& context = std::get<std::unique_ptr<TcpConnectionContext>>(*it);
-  auto& receiver = context->GetReceiver();
+  auto& context = std::get<TcpConnectionContext>(*it);
+  auto& receiver = context.GetReceiver();
   receiver.Receive({buf, buf + r});
 }
 
@@ -286,8 +285,8 @@ void TcpLayer::SendToPeer(int peerDescriptor) {
   }
 
   spdlog::info("tcp send buffered to peer: {}", peerDescriptor);
-  auto& context = std::get<std::unique_ptr<TcpConnectionContext>>(*it);
-  context->GetSender().SendBuffered();
+  auto& context = std::get<TcpConnectionContext>(*it);
+  context.GetSender().SendBuffered();
 }
 
 Tcp4Layer::Tcp4Layer(std::string_view host, std::uint16_t port, TcpReceiverFactory& receiverFactory)

@@ -106,7 +106,7 @@ private:
 
   int localDescriptor{-1};
   int epollDescriptor{-1};
-  std::unordered_map<int, std::unique_ptr<TcpConnectionContext>> connections;
+  std::unordered_map<int, TcpConnectionContext> connections;
   TcpReceiverFactory& receiverFactory;
 };
 
