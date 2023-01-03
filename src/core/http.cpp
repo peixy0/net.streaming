@@ -23,7 +23,7 @@ namespace network {
 HttpResponseVisitor::HttpResponseVisitor(TcpSender& sender) : sender{sender} {
 }
 
-void HttpResponseVisitor::operator()(const PlainTextHttpResponse& response) const {
+void HttpResponseVisitor::operator()(PlainTextHttpResponse&& response) const {
   std::string respPayload = "HTTP/1.1 " + to_string(response.status) + "\r\n";
   respPayload += "content-type: text/plain;charset=utf-8\r\n";
   respPayload += "content-length: " + std::to_string(response.body.length()) + "\r\n\r\n";
@@ -31,7 +31,7 @@ void HttpResponseVisitor::operator()(const PlainTextHttpResponse& response) cons
   sender.Send(std::move(respPayload));
 }
 
-void HttpResponseVisitor::operator()(const FileHttpResponse& response) const {
+void HttpResponseVisitor::operator()(FileHttpResponse&& response) const {
   os::File file{response.path};
   if (not file.Ok()) {
     spdlog::error("http open(\"{}\"): {}", response.path, strerror(errno));
@@ -44,7 +44,7 @@ void HttpResponseVisitor::operator()(const FileHttpResponse& response) const {
   respPayload += "content-type: " + response.contentType + "\r\n";
   respPayload += "content-length: " + std::to_string(file.Size()) + "\r\n\r\n";
   sender.Send(std::move(respPayload));
-  sender.SendFile(std::move(file));
+  sender.Send(std::move(file));
 }
 
 HttpLayer::HttpLayer(const HttpOptions& options, std::unique_ptr<HttpParser> parser, HttpProcessor& processor,
@@ -66,7 +66,7 @@ void HttpLayer::Receive(std::string_view payload) {
     return;
   }
   auto response = processor.Process(std::move(*request));
-  std::visit(HttpResponseVisitor{sender}, response);
+  std::visit(HttpResponseVisitor{sender}, std::move(response));
 }
 
 HttpLayerFactory::HttpLayerFactory(const HttpOptions& options, HttpProcessor& processor)

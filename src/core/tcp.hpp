@@ -48,7 +48,7 @@ public:
   ~ConcreteTcpSender();
 
   void Send(std::string_view) override;
-  void SendFile(os::File) override;
+  void Send(os::File) override;
   void SendBuffered() override;
   void Close() override;
 

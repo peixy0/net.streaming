@@ -100,7 +100,7 @@ void ConcreteTcpSender::Send(std::string_view buf) {
   SendBuffered();
 }
 
-void ConcreteTcpSender::SendFile(os::File file) {
+void ConcreteTcpSender::Send(os::File file) {
   buffered.emplace_back(std::make_unique<TcpSendFile>(peer, std::move(file)));
   SendBuffered();
 }

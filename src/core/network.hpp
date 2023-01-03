@@ -18,7 +18,7 @@ class TcpSender {
 public:
   virtual ~TcpSender() = default;
   virtual void Send(std::string_view) = 0;
-  virtual void SendFile(os::File) = 0;
+  virtual void Send(os::File) = 0;
   virtual void SendBuffered() = 0;
   virtual void Close() = 0;
 };

@@ -63,7 +63,7 @@ std::optional<HttpRequest> ConcreteHttpParser::Parse() {
 
 void ConcreteHttpParser::Append(std::string_view received) {
   receivedLength += received.length();
-  payload.append(received);
+  payload += received;
 }
 
 size_t ConcreteHttpParser::GetLength() const {
