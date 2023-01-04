@@ -1,8 +1,10 @@
 add_executable(
   net
-  main.cpp
   app.cpp
   app.hpp
+  main.cpp
+  video.cpp
+  video.hpp
 )
 
 target_link_libraries(
