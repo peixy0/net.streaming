@@ -45,8 +45,8 @@ DeviceBuffer::~DeviceBuffer() {
   munmap(ptr, length);
 }
 
-Stream::Stream(int fd) : fd{fd} {
-  SetParameters();
+Stream::Stream(int fd, const StreamOptions& options) : fd{fd} {
+  SetParameters(options);
   BindBuffers();
   StartStreaming();
 }
@@ -90,11 +90,11 @@ void Stream::ProcessFrame(StreamProcessor& processor) {
   }
 }
 
-void Stream::SetParameters() {
+void Stream::SetParameters(const StreamOptions& options) {
   v4l2_format fmt;
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  fmt.fmt.pix.width = 1280;
-  fmt.fmt.pix.height = 720;
+  fmt.fmt.pix.width = options.width;
+  fmt.fmt.pix.height = options.height;
   fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
   if (xioctl(fd, VIDIOC_S_FMT, &fmt) == -1) {
     spdlog::error("error forcing device format: {}", strerror(errno));
@@ -169,8 +169,8 @@ Device::Device(std::string_view deviceName) {
   }
 }
 
-Stream Device::GetStream() const {
-  return Stream{fd};
+Stream Device::GetStream(const StreamOptions& options) const {
+  return Stream{fd, options};
 }
 
 Device::~Device() {

@@ -28,15 +28,20 @@ public:
   virtual ~StreamProcessor() = default;
 };
 
+struct StreamOptions {
+  std::uint32_t width;
+  std::uint32_t height;
+};
+
 class Stream {
 public:
-  explicit Stream(int fd);
+  Stream(int fd, const StreamOptions&);
   Stream(const Stream&) = delete;
   ~Stream();
   void ProcessFrame(StreamProcessor&);
 
 private:
-  void SetParameters();
+  void SetParameters(const StreamOptions&);
   void BindBuffers();
   void StartStreaming();
   void StopStreaming();
@@ -51,7 +56,7 @@ public:
   explicit Device(std::string_view deviceName);
   Device(const Device&) = delete;
   ~Device();
-  Stream GetStream() const;
+  Stream GetStream(const StreamOptions&) const;
 
 private:
   int fd;

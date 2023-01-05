@@ -9,10 +9,12 @@ namespace application {
 AppStreamSubscriber::AppStreamSubscriber(AppStreamProcessor& processor, network::SenderNotifier& notifier)
     : processor{processor}, notifier{notifier} {
   processor.AddSubscriber(this);
+  spdlog::info("stream subscriber added");
 }
 
 AppStreamSubscriber::~AppStreamSubscriber() {
   processor.RemoveSubscriber(this);
+  spdlog::info("stream subscriber removed");
 }
 
 std::optional<std::string> AppStreamSubscriber::GetBuffered() {
