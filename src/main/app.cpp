@@ -55,13 +55,11 @@ std::unique_ptr<network::RawStream> AppStreamSubscriberFactory::GetStream(networ
   return std::make_unique<AppStreamSubscriber>(processor, notifier);
 }
 
-AppStreamProcessor::AppStreamProcessor(video::Stream& stream) : stream{stream} {
-  streamThread = std::thread([this] {
-    while (true) {
-      spdlog::debug("processing new frame");
-      this->stream.ProcessFrame(*this);
-    }
-  });
+AppStreamProcessor::AppStreamProcessor() {
+  video::StreamOptions defaultOptions;
+  defaultOptions.width = 1280;
+  defaultOptions.height = 720;
+  StartStream(std::move(defaultOptions));
 }
 
 void AppStreamProcessor::AddSubscriber(AppStreamSubscriber* subscriber) {
@@ -72,6 +70,22 @@ void AppStreamProcessor::AddSubscriber(AppStreamSubscriber* subscriber) {
 void AppStreamProcessor::RemoveSubscriber(AppStreamSubscriber* subscriber) {
   std::lock_guard lock{subscribersMut};
   subscribers.erase(subscriber);
+}
+
+void AppStreamProcessor::StartStream(video::StreamOptions&& options) {
+  streamRunning = false;
+  if (streamThread.joinable()) {
+    streamThread.join();
+  }
+  streamRunning = true;
+  streamThread = std::thread([this, options = std::move(options)]() mutable {
+    auto device = video::Device("/dev/video0");
+    auto stream = device.GetStream(std::move(options));
+    while (streamRunning) {
+      spdlog::debug("processing new frame");
+      stream.ProcessFrame(*this);
+    }
+  });
 }
 
 void AppStreamProcessor::ProcessFrame(std::string_view frame) {
@@ -119,10 +133,32 @@ network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
     resp.body = std::move(payload);
     return resp;
   }
+  if (req.uri == "/param") {
+    video::StreamOptions options;
+    const auto qualityQuery = req.query.find("quality");
+    if (qualityQuery == req.query.cend()) {
+      return BuildPlainTextRequest(network::HttpStatus::BadRequest, "Bad Request");
+    }
+    if (qualityQuery->second == "hires") {
+      options.width = 1280;
+      options.height = 720;
+    } else if (qualityQuery->second == "lowres") {
+      options.width = 848;
+      options.height = 480;
+    } else {
+      return BuildPlainTextRequest(network::HttpStatus::BadRequest, "Bad Request");
+    }
+    streamProcessor.StartStream(std::move(options));
+    return BuildPlainTextRequest(network::HttpStatus::OK, "OK");
+  }
+  return BuildPlainTextRequest(network::HttpStatus::NotFound, "Not Found");
+}
+
+network::HttpResponse AppLayer::BuildPlainTextRequest(network::HttpStatus status, std::string_view body) const {
   network::PreparedHttpResponse resp;
-  resp.status = network::HttpStatus::NotFound;
-  resp.headers.emplace("Content-Type", "text/plain");
-  resp.body = "Not Found";
+  resp.status = status;
+  resp.headers.emplace("Content-Type", "text/plain; charset=UTF-8");
+  resp.body = body;
   return resp;
 }
 

@@ -27,7 +27,7 @@ private:
 
 class AppStreamSubscriberFactory : public network::RawStreamFactory {
 public:
-  AppStreamSubscriberFactory(AppStreamProcessor&);
+  explicit AppStreamSubscriberFactory(AppStreamProcessor&);
   std::unique_ptr<network::RawStream> GetStream(network::SenderNotifier&);
 
 private:
@@ -36,9 +36,10 @@ private:
 
 class AppStreamProcessor : public video::StreamProcessor {
 public:
-  AppStreamProcessor(video::Stream&);
+  AppStreamProcessor();
   void AddSubscriber(AppStreamSubscriber*);
   void RemoveSubscriber(AppStreamSubscriber*);
+  void StartStream(video::StreamOptions&& options);
   void ProcessFrame(std::string_view) override;
   std::string GetSnapshot() const;
 
@@ -46,8 +47,8 @@ private:
   void NotifySubscribers(std::string_view);
   void SaveSnapshot(std::string_view);
 
-  video::Stream& stream;
   std::thread streamThread;
+  std::atomic<bool> streamRunning;
   std::set<AppStreamSubscriber*> subscribers;
   std::mutex mutable subscribersMut;
   std::string snapshot;
@@ -56,11 +57,13 @@ private:
 
 class AppLayer : public network::HttpProcessor {
 public:
-  AppLayer(AppStreamProcessor&);
+  explicit AppLayer(AppStreamProcessor&);
   ~AppLayer() = default;
   network::HttpResponse Process(const network::HttpRequest&) override;
 
 private:
+  network::HttpResponse BuildPlainTextRequest(network::HttpStatus, std::string_view) const;
+
   AppStreamProcessor& streamProcessor;
 };
 

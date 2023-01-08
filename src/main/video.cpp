@@ -47,14 +47,16 @@ DeviceBuffer::~DeviceBuffer() {
   spdlog::debug("video buffer unmapped");
 }
 
-Stream::Stream(int fd, const StreamOptions& options) : fd{fd} {
-  SetParameters(options);
+Stream::Stream(int fd, StreamOptions&& options) : fd{fd} {
+  SetParameters(std::move(options));
   BindBuffers();
   StartStreaming();
+  spdlog::debug("streaming started");
 }
 
 Stream::~Stream() {
   StopStreaming();
+  spdlog::debug("streaming stopped");
 }
 
 void Stream::ProcessFrame(StreamProcessor& processor) {
@@ -93,7 +95,7 @@ void Stream::ProcessFrame(StreamProcessor& processor) {
   }
 }
 
-void Stream::SetParameters(const StreamOptions& options) {
+void Stream::SetParameters(StreamOptions&& options) {
   v4l2_format fmt;
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   fmt.fmt.pix.width = options.width;
@@ -158,6 +160,13 @@ void Stream::StartStreaming() {
 }
 
 void Stream::StopStreaming() {
+  epoll_event ev;
+  ev.events = EPOLLIN;
+  ev.data.fd = fd;
+  if (epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &ev) == -1) {
+    spdlog::error("error removing epoll fd: {}", strerror(errno));
+  }
+  close(epfd);
   v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl(fd, VIDIOC_STREAMOFF, &type) == -1) {
     spdlog::error("error stopping stream: {}", strerror(errno));
@@ -172,8 +181,8 @@ Device::Device(std::string_view deviceName) {
   }
 }
 
-Stream Device::GetStream(const StreamOptions& options) const {
-  return Stream{fd, options};
+Stream Device::GetStream(StreamOptions&& options) const {
+  return Stream{fd, std::move(options)};
 }
 
 Device::~Device() {
