@@ -42,8 +42,10 @@ TEST(HttpLayerTestSuite, whenReceivedValidHttpRequest_itShouldRespondOk) {
   HttpRequest httpRequest;
   httpRequest.method = "get";
   httpRequest.uri = "/";
-  PlainTextHttpResponse httpResponse;
+  PreparedHttpResponse httpResponse;
   httpResponse.status = HttpStatus::OK;
+  httpResponse.headers.emplace("Content-Type", "text/plain");
+  httpResponse.body = "Not Found";
   auto parser = std::make_unique<network::ConcreteHttpParser>();
   StrictMock<HttpProcessorMock> processor;
   StrictMock<network::TcpSenderMock> senderMock;
@@ -52,7 +54,7 @@ TEST(HttpLayerTestSuite, whenReceivedValidHttpRequest_itShouldRespondOk) {
   EXPECT_CALL(processor, Process(_)).WillOnce(Return(ByMove(httpResponse)));
   std::string requestPayload("GET / HTTP/1.1\r\n\r\n");
   sut->Receive(requestPayload);
-  EXPECT_EQ(responsePayload, "HTTP/1.1 200 OK\r\ncontent-type: text/plain;charset=utf-8\r\ncontent-length: 0\r\n\r\n");
+  EXPECT_EQ(responsePayload, "HTTP/1.1 200 OK\r\nContent-Length: 9\r\nContent-Type: text/plain\r\n\r\nNot Found");
 }
 
 }  // namespace network

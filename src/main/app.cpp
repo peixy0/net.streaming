@@ -26,10 +26,17 @@ network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
   std::string localPath{localPathStr};
   spdlog::debug("request local path is {}", localPath);
   if (not localPath.starts_with(wwwRoot)) {
-    return network::PlainTextHttpResponse{network::HttpStatus::NotFound, ""};
+    network::PreparedHttpResponse resp;
+    resp.status = network::HttpStatus::NotFound;
+    resp.headers.emplace("Content-Type", "text/plain");
+    resp.body = "Not Found";
+    return resp;
   }
   std::string mimeType = MimeTypeOf(localPath);
-  return network::FileHttpResponse{std::move(localPath), std::move(mimeType)};
+  network::FileHttpResponse resp;
+  resp.path = std::move(localPath);
+  resp.headers.emplace("Content-type", std::move(mimeType));
+  return resp;
 }
 
 std::string AppLayer::MimeTypeOf(std::string_view path) {

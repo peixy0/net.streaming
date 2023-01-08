@@ -11,7 +11,7 @@ std::string to_string(network::HttpStatus status) {
     case network::HttpStatus::OK:
       return "200 OK";
     case network::HttpStatus::NotFound:
-      return "404 Not Found";
+      return "404";
   }
   return "";
 }
@@ -23,11 +23,14 @@ namespace network {
 HttpResponseVisitor::HttpResponseVisitor(TcpSender& sender) : sender{sender} {
 }
 
-void HttpResponseVisitor::operator()(PlainTextHttpResponse&& response) const {
+void HttpResponseVisitor::operator()(PreparedHttpResponse&& response) const {
   std::string respPayload = "HTTP/1.1 " + to_string(response.status) + "\r\n";
-  respPayload += "content-type: text/plain;charset=utf-8\r\n";
-  respPayload += "content-length: " + std::to_string(response.body.length()) + "\r\n\r\n";
-  respPayload += response.body;
+  response.headers.emplace("Content-Length", std::to_string(response.body.length()));
+  for (const auto& [k, v] : response.headers) {
+    respPayload += k + ": " + v + "\r\n";
+  }
+  respPayload += "\r\n";
+  respPayload += std::move(response.body);
   sender.Send(std::move(respPayload));
 }
 
@@ -35,16 +38,25 @@ void HttpResponseVisitor::operator()(FileHttpResponse&& response) const {
   os::File file{response.path};
   if (not file.Ok()) {
     spdlog::error("http open(\"{}\"): {}", response.path, strerror(errno));
-    std::string respPayload = "HTTP/1.1 " + to_string(HttpStatus::NotFound) + "\r\n";
-    respPayload += "content-length: 0\r\n\r\n";
-    sender.Send(std::move(respPayload));
-    return;
+    PreparedHttpResponse resp;
+    resp.status = HttpStatus::NotFound;
+    resp.headers.emplace("Content-Type", "text/plain");
+    resp.body = "Not Found";
+    return operator()(std::move(resp));
   }
   std::string respPayload = "HTTP/1.1 " + to_string(HttpStatus::OK) + "\r\n";
-  respPayload += "content-type: " + response.contentType + "\r\n";
-  respPayload += "content-length: " + std::to_string(file.Size()) + "\r\n\r\n";
+  response.headers.emplace("Content-Length", std::to_string(file.Size()));
+  for (const auto& [k, v] : response.headers) {
+    respPayload += k + ": " + v + "\r\n";
+  }
+  respPayload += "\r\n";
   sender.Send(std::move(respPayload));
   sender.Send(std::move(file));
+}
+
+void HttpResponseVisitor::operator()(RawStreamHttpResponse&& response) const {
+  auto stream = response.streamFactory->GetStream(sender);
+  sender.Send(std::move(stream));
 }
 
 HttpLayer::HttpLayer(const HttpOptions& options, std::unique_ptr<HttpParser> parser, HttpProcessor& processor,

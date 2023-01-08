@@ -1,5 +1,4 @@
 #pragma once
-#include <chrono>
 #include <deque>
 #include <string>
 #include <unordered_map>
@@ -23,19 +22,36 @@ public:
 private:
   int peer;
   std::string buffer;
-  size_t size;
+  size_t size{0};
 };
 
 class TcpSendFile : public TcpSendOp {
 public:
-  TcpSendFile(int, os::File file);
+  TcpSendFile(int, os::File);
   void Send() override;
   bool Done() const override;
 
 private:
   int peer;
   os::File file;
-  size_t size;
+  size_t size{0};
+};
+
+class TcpSendStream : public TcpSendOp {
+public:
+  TcpSendStream(int, TcpSender&, std::unique_ptr<RawStream>);
+  void Send() override;
+  bool Done() const override;
+
+private:
+  void FillBuffer();
+
+  int peer;
+  TcpSender& sender;
+  std::unique_ptr<RawStream> stream;
+  std::string buffer;
+  size_t size{0};
+  bool done{false};
 };
 
 class ConcreteTcpSender : public TcpSender {
@@ -49,14 +65,18 @@ public:
 
   void Send(std::string_view) override;
   void Send(os::File) override;
+  void Send(std::unique_ptr<RawStream>) override;
   void SendBuffered() override;
   void Close() override;
+  void MarkPending() override;
+  void UnmarkPending() override;
 
 private:
   int peer;
   TcpSenderSupervisor& supervisor;
   std::deque<std::unique_ptr<TcpSendOp>> buffered;
   bool pending{false};
+  std::mutex pendingMut;
 };
 
 class TcpConnectionContext {

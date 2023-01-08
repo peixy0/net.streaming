@@ -28,6 +28,7 @@ void TcpSendBuffer::Send() {
       return;
     }
     size -= n;
+    buffer.erase(0, n);
   }
 }
 
@@ -64,6 +65,48 @@ bool TcpSendFile::Done() const {
   return size == 0;
 }
 
+TcpSendStream::TcpSendStream(int peer, TcpSender& sender, std::unique_ptr<RawStream> stream)
+    : peer{peer}, sender{sender}, stream{std::move(stream)} {
+}
+
+void TcpSendStream::Send() {
+  if (size == 0) {
+    FillBuffer();
+  }
+  while (size > 0) {
+    int n = send(peer, buffer.c_str(), size, 0);
+    if (n == -1) {
+      if (errno == EAGAIN or errno == EWOULDBLOCK) {
+        return;
+      }
+      spdlog::error("tcp send(): {}", strerror(errno));
+      return;
+    }
+    if (n == 0) {
+      return;
+    }
+    size -= n;
+    buffer.erase(0, n);
+  }
+}
+
+bool TcpSendStream::Done() const {
+  return done;
+}
+
+void TcpSendStream::FillBuffer() {
+  auto buf = stream->GetBuffered();
+  if (not buf) {
+    done = true;
+    return;
+  }
+  buffer = std::move(*buf);
+  size = buffer.size();
+  if (size == 0) {
+    sender.UnmarkPending();
+  }
+}
+
 ConcreteTcpSender::ConcreteTcpSender(int s, TcpSenderSupervisor& supervisor) : peer{s}, supervisor{supervisor} {
   int flag = 0;
   int r = setsockopt(peer, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof flag);
@@ -81,27 +124,28 @@ void ConcreteTcpSender::SendBuffered() {
     auto& op = buffered.front();
     op->Send();
     if (not op->Done()) {
-      if (not pending) {
-        pending = true;
-        supervisor.MarkSenderPending(peer);
-      }
       return;
     }
     buffered.pop_front();
   }
-  if (pending) {
-    pending = false;
-    supervisor.UnmarkSenderPending(peer);
-  }
+  UnmarkPending();
 }
 
 void ConcreteTcpSender::Send(std::string_view buf) {
   buffered.emplace_back(std::make_unique<TcpSendBuffer>(peer, buf));
+  MarkPending();
   SendBuffered();
 }
 
 void ConcreteTcpSender::Send(os::File file) {
   buffered.emplace_back(std::make_unique<TcpSendFile>(peer, std::move(file)));
+  MarkPending();
+  SendBuffered();
+}
+
+void ConcreteTcpSender::Send(std::unique_ptr<RawStream> stream) {
+  buffered.emplace_back(std::make_unique<TcpSendStream>(peer, *this, std::move(stream)));
+  MarkPending();
   SendBuffered();
 }
 
@@ -110,6 +154,24 @@ void ConcreteTcpSender::Close() {
     shutdown(peer, SHUT_RDWR);
     peer = -1;
   }
+}
+
+void ConcreteTcpSender::MarkPending() {
+  std::lock_guard lock{pendingMut};
+  if (pending) {
+    return;
+  }
+  pending = true;
+  supervisor.MarkSenderPending(peer);
+}
+
+void ConcreteTcpSender::UnmarkPending() {
+  std::lock_guard lock{pendingMut};
+  if (not pending) {
+    return;
+  }
+  pending = false;
+  supervisor.UnmarkSenderPending(peer);
 }
 
 TcpConnectionContext::TcpConnectionContext(int fd, std::unique_ptr<TcpReceiver> receiver,
@@ -164,7 +226,7 @@ void TcpLayer::MarkReceiverPending(int peer) {
 }
 
 void TcpLayer::MarkSenderPending(int peer) {
-  spdlog::info("tcp mark sender pending: {}", peer);
+  spdlog::debug("tcp mark sender pending: {}", peer);
   epoll_event event;
   event.events = EPOLLIN | EPOLLOUT;
   event.data.fd = peer;
@@ -176,7 +238,7 @@ void TcpLayer::MarkSenderPending(int peer) {
 }
 
 void TcpLayer::UnmarkSenderPending(int peer) {
-  spdlog::info("tcp unmark sender pending: {}", peer);
+  spdlog::debug("tcp unmark sender pending: {}", peer);
   epoll_event event;
   event.events = EPOLLIN;
   event.data.fd = peer;
@@ -284,7 +346,6 @@ void TcpLayer::SendToPeer(int peerDescriptor) {
     return;
   }
 
-  spdlog::info("tcp send buffered to peer: {}", peerDescriptor);
   auto& context = std::get<TcpConnectionContext>(*it);
   context.GetSender().SendBuffered();
 }

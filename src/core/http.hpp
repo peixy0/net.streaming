@@ -8,8 +8,9 @@ namespace network {
 class HttpResponseVisitor {
 public:
   explicit HttpResponseVisitor(TcpSender&);
-  void operator()(PlainTextHttpResponse&&) const;
+  void operator()(PreparedHttpResponse&&) const;
   void operator()(FileHttpResponse&&) const;
+  void operator()(RawStreamHttpResponse&&) const;
 
 private:
   TcpSender& sender;
