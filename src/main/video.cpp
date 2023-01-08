@@ -30,6 +30,7 @@ DeviceBuffer::DeviceBuffer(int fd, off_t offset, size_t length) : length{length}
     spdlog::error("error mmap video buffer: {}", strerror(errno));
     return;
   }
+  spdlog::debug("video buffer mapped");
 }
 
 DeviceBuffer::DeviceBuffer(DeviceBuffer&& buffer) {
@@ -43,6 +44,7 @@ DeviceBuffer::~DeviceBuffer() {
     return;
   }
   munmap(ptr, length);
+  spdlog::debug("video buffer unmapped");
 }
 
 Stream::Stream(int fd, const StreamOptions& options) : fd{fd} {
@@ -80,6 +82,7 @@ void Stream::ProcessFrame(StreamProcessor& processor) {
         return;
       }
       const char* p = static_cast<const char*>(buffers[buf.index].Get());
+      spdlog::debug("buffer flags: {}", buf.flags);
       processor.ProcessFrame({p, p + buf.bytesused});
       if (xioctl(fd, VIDIOC_QBUF, &buf) == -1) {
         spdlog::error("error queueing buffer: {}", strerror(errno));

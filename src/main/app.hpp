@@ -40,12 +40,18 @@ public:
   void AddSubscriber(AppStreamSubscriber*);
   void RemoveSubscriber(AppStreamSubscriber*);
   void ProcessFrame(std::string_view) override;
+  std::string GetSnapshot() const;
 
 private:
+  void NotifySubscribers(std::string_view);
+  void SaveSnapshot(std::string_view);
+
   video::Stream& stream;
   std::thread streamThread;
   std::set<AppStreamSubscriber*> subscribers;
-  std::mutex subscribersMut;
+  std::mutex mutable subscribersMut;
+  std::string snapshot;
+  std::mutex mutable snapshotMut;
 };
 
 class AppLayer : public network::HttpProcessor {

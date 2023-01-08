@@ -14,8 +14,8 @@ int main(int argc, char* argv[]) {
   spdlog::set_level(spdlog::level::info);
   video::Device device{"/dev/video0"};
   video::StreamOptions streamOptions;
-  streamOptions.width = 848;
-  streamOptions.height = 480;
+  streamOptions.width = 1280;
+  streamOptions.height = 720;
   auto stream = device.GetStream(streamOptions);
   application::AppStreamProcessor streamProcessor{stream};
   application::AppLayer app{streamProcessor};

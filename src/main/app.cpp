@@ -58,12 +58,8 @@ std::unique_ptr<network::RawStream> AppStreamSubscriberFactory::GetStream(networ
 AppStreamProcessor::AppStreamProcessor(video::Stream& stream) : stream{stream} {
   streamThread = std::thread([this] {
     while (true) {
-      using namespace std::chrono_literals;
-      std::this_thread::sleep_for(20ms);
-      {
-        spdlog::debug("processing new frame");
-        this->stream.ProcessFrame(*this);
-      }
+      spdlog::debug("processing new frame");
+      this->stream.ProcessFrame(*this);
     }
   });
 }
@@ -79,10 +75,26 @@ void AppStreamProcessor::RemoveSubscriber(AppStreamSubscriber* subscriber) {
 }
 
 void AppStreamProcessor::ProcessFrame(std::string_view frame) {
+  NotifySubscribers(frame);
+  SaveSnapshot(frame);
+}
+
+std::string AppStreamProcessor::GetSnapshot() const {
+  std::lock_guard lock{snapshotMut};
+  std::string copy{snapshot};
+  return copy;
+}
+
+void AppStreamProcessor::NotifySubscribers(std::string_view frame) {
   std::lock_guard lock{subscribersMut};
   for (auto* s : subscribers) {
     s->ProcessFrame(frame);
   }
+}
+
+void AppStreamProcessor::SaveSnapshot(std::string_view frame) {
+  std::lock_guard lock{snapshotMut};
+  snapshot = frame;
 }
 
 AppLayer::AppLayer(AppStreamProcessor& streamProcessor) : streamProcessor{streamProcessor} {
@@ -98,6 +110,14 @@ network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
   }
   if (req.uri == "/stream") {
     return network::RawStreamHttpResponse{std::make_unique<AppStreamSubscriberFactory>(streamProcessor)};
+  }
+  if (req.uri == "/snapshot") {
+    const auto payload = streamProcessor.GetSnapshot();
+    network::PreparedHttpResponse resp;
+    resp.status = network::HttpStatus::OK;
+    resp.headers.emplace("Content-Type", "image/jpeg");
+    resp.body = std::move(payload);
+    return resp;
   }
   network::PreparedHttpResponse resp;
   resp.status = network::HttpStatus::NotFound;
