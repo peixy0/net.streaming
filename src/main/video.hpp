@@ -31,6 +31,7 @@ public:
 struct StreamOptions {
   std::uint32_t width;
   std::uint32_t height;
+  std::uint32_t framerate;
 };
 
 class Stream {

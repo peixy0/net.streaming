@@ -97,12 +97,21 @@ void Stream::ProcessFrame(StreamProcessor& processor) {
 
 void Stream::SetParameters(StreamOptions&& options) {
   v4l2_format fmt;
+  memset(&fmt, 0, sizeof fmt);
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   fmt.fmt.pix.width = options.width;
   fmt.fmt.pix.height = options.height;
   fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
   if (xioctl(fd, VIDIOC_S_FMT, &fmt) == -1) {
     spdlog::error("error forcing device format: {}", strerror(errno));
+  }
+  v4l2_streamparm parm;
+  memset(&parm, 0, sizeof parm);
+  parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  parm.parm.capture.timeperframe.numerator = 1;
+  parm.parm.capture.timeperframe.denominator = options.framerate;
+  if (xioctl(fd, VIDIOC_S_PARM, &parm) == -1) {
+    spdlog::error("error setting framerate: {}", strerror(errno));
   }
 }
 

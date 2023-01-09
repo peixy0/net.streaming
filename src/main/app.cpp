@@ -59,6 +59,7 @@ AppStreamProcessor::AppStreamProcessor() {
   video::StreamOptions defaultOptions;
   defaultOptions.width = 1280;
   defaultOptions.height = 720;
+  defaultOptions.framerate = 30;
   StartStream(std::move(defaultOptions));
 }
 
@@ -142,9 +143,11 @@ network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
     if (qualityQuery->second == "hires") {
       options.width = 1280;
       options.height = 720;
+      options.framerate = 30;
     } else if (qualityQuery->second == "lowres") {
       options.width = 848;
       options.height = 480;
+      options.framerate = 15;
     } else {
       return BuildPlainTextRequest(network::HttpStatus::BadRequest, "Bad Request");
     }
