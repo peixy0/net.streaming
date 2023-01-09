@@ -10,8 +10,10 @@ std::string to_string(network::HttpStatus status) {
   switch (status) {
     case network::HttpStatus::OK:
       return "200 OK";
+    case network::HttpStatus::BadRequest:
+      return "400 Bad Request";
     case network::HttpStatus::NotFound:
-      return "404";
+      return "404 Not Found";
   }
   return "";
 }

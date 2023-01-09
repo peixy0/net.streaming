@@ -68,7 +68,7 @@ using HttpHeaders = std::unordered_map<std::string, std::string>;
 
 using HttpQuery = std::unordered_map<std::string, std::string>;
 
-enum class HttpStatus { OK, NotFound };
+enum class HttpStatus { OK, BadRequest, NotFound };
 
 struct HttpRequest {
   std::string method;
