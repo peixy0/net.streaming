@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 #include <optional>
 #include "network.hpp"
 
@@ -33,13 +34,19 @@ private:
   bool ParseHeaders(std::string&, HttpHeaders&) const;
   std::optional<HttpHeader> ParseHeader(std::string&) const;
   std::optional<std::string> ParseHeaderField(std::string&) const;
-  std::optional<std::string> ParseHeaderLine(std::string&) const;
+  std::optional<std::string> ParseLine(std::string&) const;
   size_t FindContentLength(const HttpHeaders&) const;
+  std::string ParseUriBase(std::string&) const;
+  std::string ParseQueryKey(std::string&) const;
+  std::string ParseQueryValue(std::string&) const;
+  HttpQuery ParseQueryString(std::string&) const;
 
   std::string payload;
   size_t receivedLength{0};
   std::optional<std::string> method;
   std::optional<std::string> uri;
+  std::string uriBase;
+  HttpQuery query;
   std::optional<std::string> version;
   bool requestLineEndingParsed{false};
   HttpHeaders headers;

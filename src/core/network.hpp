@@ -66,6 +66,8 @@ struct HttpOptions {
 
 using HttpHeaders = std::unordered_map<std::string, std::string>;
 
+using HttpQuery = std::unordered_map<std::string, std::string>;
+
 enum class HttpStatus { OK, NotFound };
 
 struct HttpRequest {
@@ -73,6 +75,7 @@ struct HttpRequest {
   std::string uri;
   std::string version;
   HttpHeaders headers;
+  HttpQuery query;
   std::string body;
 };
 

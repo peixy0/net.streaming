@@ -25,6 +25,8 @@ std::optional<HttpRequest> ConcreteHttpParser::Parse() {
     if (not uri) {
       return std::nullopt;
     }
+    uriBase = ParseUriBase(*uri);
+    query = ParseQueryString(*uri);
   }
   if (not version) {
     version = ParseToken(payload);
@@ -56,7 +58,8 @@ std::optional<HttpRequest> ConcreteHttpParser::Parse() {
   }
   std::string body = payload.substr(0, bodyRemaining);
   payload.erase(0, bodyRemaining);
-  HttpRequest request{std::move(*method), std::move(*uri), std::move(*version), std::move(headers), std::move(body)};
+  HttpRequest request{std::move(*method), std::move(uriBase), std::move(*version),
+                      std::move(headers), std::move(query),   std::move(body)};
   Reset();
   return request;
 }
@@ -83,9 +86,8 @@ void ConcreteHttpParser::Reset() {
 }
 
 void ConcreteHttpParser::SkipWhiteSpaces(std::string& payload) const {
-  while (not payload.empty() and payload[0] == ' ') {
-    payload.erase(0, 1);
-  }
+  size_t n = payload.find_first_not_of(' ');
+  payload.erase(0, n);
 }
 
 bool ConcreteHttpParser::Consume(std::string& payload, std::string_view value) const {
@@ -105,15 +107,11 @@ std::optional<std::string> ConcreteHttpParser::ParseToken(std::string& payload) 
   if (payload.empty()) {
     return std::nullopt;
   }
-  size_t n = 0;
-  size_t length = payload.length();
-  while (n < length and not(payload[n] == ' ' or payload[n] == '\r' or payload[n] == '\n')) {
-    n++;
-  }
-  if (n == length) {
+  const auto n = payload.find_first_of(" \r\n");
+  if (n == payload.npos) {
     return std::nullopt;
   }
-  std::string token = payload.substr(0, n);
+  const auto token = payload.substr(0, n);
   payload.erase(0, n);
   SkipWhiteSpaces(payload);
   return token;
@@ -134,7 +132,7 @@ bool ConcreteHttpParser::ParseHeaders(std::string& payload, HttpHeaders& headers
 }
 
 std::optional<HttpHeader> ConcreteHttpParser::ParseHeader(std::string& payload) const {
-  auto line = ParseHeaderLine(payload);
+  auto line = ParseLine(payload);
   if (not line) {
     return std::nullopt;
   }
@@ -148,43 +146,74 @@ std::optional<HttpHeader> ConcreteHttpParser::ParseHeader(std::string& payload) 
 
 std::optional<std::string> ConcreteHttpParser::ParseHeaderField(std::string& payload) const {
   SkipWhiteSpaces(payload);
-  size_t n = 0;
-  size_t length = payload.length();
-  while (n < length and payload[n] != ':') {
-    ++n;
-  }
-  ++n;
-  if (n > length) {
+  const auto n = payload.find(':');
+  if (n == payload.npos) {
     return std::nullopt;
   }
-  std::string s = payload.substr(0, n - 1);
-  payload.erase(0, n);
+  const auto s = payload.substr(0, n);
+  payload.erase(0, n + 1);
   SkipWhiteSpaces(payload);
   return s;
 }
 
-std::optional<std::string> ConcreteHttpParser::ParseHeaderLine(std::string& payload) const {
-  size_t n = 0;
-  size_t length = payload.length();
-  while (n + 1 < length and not(payload[n] == '\r' and payload[n + 1] == '\n')) {
-    ++n;
-  }
-  n += 2;
-  if (n > length) {
+std::optional<std::string> ConcreteHttpParser::ParseLine(std::string& payload) const {
+  const auto n = payload.find("\r\n");
+  if (n == payload.npos) {
     return std::nullopt;
   }
-  std::string s = payload.substr(0, n - 2);
-  payload.erase(0, n);
+  const auto s = payload.substr(0, n);
+  payload.erase(0, n + 2);
   return s;
 }
 
 size_t ConcreteHttpParser::FindContentLength(const HttpHeaders& headers) const {
-  auto it = headers.find("content-length");
+  const auto it = headers.find("content-length");
   if (it != headers.end()) {
     size_t r = stoul(it->second);
     return r > 0 ? r : 0;
   }
   return 0;
+}
+
+std::string ConcreteHttpParser::ParseUriBase(std::string& uri) const {
+  const auto n = uri.find('?');
+  const auto r = uri.substr(0, n);
+  uri.erase(0, n);
+  return r;
+}
+
+std::string ConcreteHttpParser::ParseQueryKey(std::string& uri) const {
+  const auto n = uri.find('=');
+  const auto r = uri.substr(0, n);
+  uri.erase(0, n);
+  return r;
+}
+
+std::string ConcreteHttpParser::ParseQueryValue(std::string& uri) const {
+  const auto n = uri.find('&');
+  const auto r = uri.substr(0, n);
+  uri.erase(0, n);
+  return r;
+}
+
+HttpQuery ConcreteHttpParser::ParseQueryString(std::string& uri) const {
+  HttpQuery result;
+  if (uri.empty() or not Consume(uri, "?")) {
+    return result;
+  }
+  while (true) {
+    auto key = ParseQueryKey(uri);
+    if (not Consume(uri, "=")) {
+      result.emplace(std::move(key), "");
+      break;
+    }
+    auto value = ParseQueryValue(uri);
+    result.emplace(std::move(key), std::move(value));
+    if (not Consume(uri, "&")) {
+      break;
+    }
+  }
+  return result;
 }
 
 }  // namespace network
