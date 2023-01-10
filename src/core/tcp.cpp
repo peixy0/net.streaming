@@ -326,7 +326,6 @@ void TcpLayer::ReadFromPeer(int peerDescriptor) {
     if (errno == EAGAIN or errno == EWOULDBLOCK) {
       return;
     }
-    spdlog::error("tcp recv(): {}", strerror(errno));
     ClosePeer(peerDescriptor);
     return;
   }
