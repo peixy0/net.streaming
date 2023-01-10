@@ -100,7 +100,7 @@ std::string AppStreamProcessor::GetSnapshot() const {
   return copy;
 }
 
-void AppStreamProcessor::NotifySubscribers(std::string_view frame) {
+void AppStreamProcessor::NotifySubscribers(std::string_view frame) const {
   std::lock_guard lock{subscribersMut};
   for (auto* s : subscribers) {
     s->ProcessFrame(frame);

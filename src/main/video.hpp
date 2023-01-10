@@ -39,13 +39,14 @@ public:
   Stream(int fd, StreamOptions&&);
   Stream(const Stream&) = delete;
   ~Stream();
-  void ProcessFrame(StreamProcessor&);
+  int GetFramerate() const;
+  void ProcessFrame(StreamProcessor&) const;
 
 private:
-  void SetParameters(StreamOptions&&);
+  void SetParameters(StreamOptions&&) const;
   void BindBuffers();
   void StartStreaming();
-  void StopStreaming();
+  void StopStreaming() const;
 
   int fd;
   int epfd;

@@ -28,7 +28,7 @@ private:
 class AppStreamSubscriberFactory : public network::RawStreamFactory {
 public:
   explicit AppStreamSubscriberFactory(AppStreamProcessor&);
-  std::unique_ptr<network::RawStream> GetStream(network::SenderNotifier&);
+  std::unique_ptr<network::RawStream> GetStream(network::SenderNotifier&) override;
 
 private:
   AppStreamProcessor& processor;
@@ -39,12 +39,12 @@ public:
   AppStreamProcessor();
   void AddSubscriber(AppStreamSubscriber*);
   void RemoveSubscriber(AppStreamSubscriber*);
-  void StartStream(video::StreamOptions&& options);
+  void StartStream(video::StreamOptions&&);
   void ProcessFrame(std::string_view) override;
   std::string GetSnapshot() const;
 
 private:
-  void NotifySubscribers(std::string_view);
+  void NotifySubscribers(std::string_view) const;
   void SaveSnapshot(std::string_view);
 
   std::thread streamThread;

@@ -59,7 +59,17 @@ Stream::~Stream() {
   spdlog::debug("streaming stopped");
 }
 
-void Stream::ProcessFrame(StreamProcessor& processor) {
+int Stream::GetFramerate() const {
+  v4l2_streamparm parm;
+  memset(&parm, 0, sizeof parm);
+  parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  if (xioctl(fd, VIDIOC_G_PARM, &parm) == -1) {
+    spdlog::error("error getting parameters: {}", strerror(errno));
+  }
+  return parm.parm.capture.timeperframe.denominator / parm.parm.capture.timeperframe.numerator;
+}
+
+void Stream::ProcessFrame(StreamProcessor& processor) const {
   while (true) {
     constexpr int maxEvents = 10;
     epoll_event events[maxEvents];
@@ -84,7 +94,6 @@ void Stream::ProcessFrame(StreamProcessor& processor) {
         return;
       }
       const char* p = static_cast<const char*>(buffers[buf.index].Get());
-      spdlog::debug("buffer flags: {}", buf.flags);
       processor.ProcessFrame({p, p + buf.bytesused});
       if (xioctl(fd, VIDIOC_QBUF, &buf) == -1) {
         spdlog::error("error queueing buffer: {}", strerror(errno));
@@ -95,7 +104,7 @@ void Stream::ProcessFrame(StreamProcessor& processor) {
   }
 }
 
-void Stream::SetParameters(StreamOptions&& options) {
+void Stream::SetParameters(StreamOptions&& options) const {
   v4l2_format fmt;
   memset(&fmt, 0, sizeof fmt);
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -168,7 +177,7 @@ void Stream::StartStreaming() {
   }
 }
 
-void Stream::StopStreaming() {
+void Stream::StopStreaming() const {
   epoll_event ev;
   ev.events = EPOLLIN;
   ev.data.fd = fd;
