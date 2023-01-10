@@ -122,6 +122,13 @@ void Stream::SetParameters(StreamOptions&& options) const {
   if (xioctl(fd, VIDIOC_S_PARM, &parm) == -1) {
     spdlog::error("error setting framerate: {}", strerror(errno));
   }
+  v4l2_control ctrl;
+  memset(&ctrl, 0, sizeof ctrl);
+  ctrl.id = V4L2_CID_EXPOSURE_AUTO_PRIORITY;
+  ctrl.value = 0;
+  if (xioctl(fd, VIDIOC_S_CTRL, &ctrl) == -1) {
+    spdlog::error("error setting auto exposure: {}", strerror(errno));
+  }
 }
 
 void Stream::BindBuffers() {

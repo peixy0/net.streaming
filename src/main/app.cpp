@@ -1,6 +1,5 @@
 #include "app.hpp"
 #include <spdlog/spdlog.h>
-#include <thread>
 #include "network.hpp"
 #include "video.hpp"
 
