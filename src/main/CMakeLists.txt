@@ -12,6 +12,8 @@ target_link_libraries(
   PRIVATE
   net.core
   spdlog
+  ${AVCODEC_LIBRARY}
+  ${AVUTIL_LIBRARY}
 )
 
 set_target_properties(

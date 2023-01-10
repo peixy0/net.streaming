@@ -20,6 +20,16 @@ int xioctl(int fd, unsigned long req, T... args) {
   return r;
 }
 
+std::uint32_t convert(video::StreamFormat format) {
+  switch (format) {
+    case video::StreamFormat::MJPEG:
+      return V4L2_PIX_FMT_MJPEG;
+    case video::StreamFormat::YUV422:
+      return V4L2_PIX_FMT_YUV422P;
+  }
+  return V4L2_PIX_FMT_MJPEG;
+}
+
 }  // namespace
 
 namespace video {
@@ -57,16 +67,6 @@ Stream::Stream(int fd, StreamOptions&& options) : fd{fd} {
 Stream::~Stream() {
   StopStreaming();
   spdlog::debug("streaming stopped");
-}
-
-int Stream::GetFramerate() const {
-  v4l2_streamparm parm;
-  memset(&parm, 0, sizeof parm);
-  parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  if (xioctl(fd, VIDIOC_G_PARM, &parm) == -1) {
-    spdlog::error("error getting parameters: {}", strerror(errno));
-  }
-  return parm.parm.capture.timeperframe.denominator / parm.parm.capture.timeperframe.numerator;
 }
 
 void Stream::ProcessFrame(StreamProcessor& processor) const {
@@ -110,7 +110,7 @@ void Stream::SetParameters(StreamOptions&& options) const {
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   fmt.fmt.pix.width = options.width;
   fmt.fmt.pix.height = options.height;
-  fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
+  fmt.fmt.pix.pixelformat = convert(options.format);
   if (xioctl(fd, VIDIOC_S_FMT, &fmt) == -1) {
     spdlog::error("error forcing device format: {}", strerror(errno));
   }

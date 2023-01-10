@@ -38,6 +38,9 @@ project(
   VERSION 1.0
 )
 
+find_library(AVCODEC_LIBRARY avcodec)
+find_library(AVUTIL_LIBRARY avutil)
+
 add_subdirectory(src)
 
 add_custom_target(

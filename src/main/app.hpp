@@ -8,56 +8,84 @@
 
 namespace application {
 
-class AppStreamProcessor;
+class AppStreamRecorder {
+public:
+  AppStreamRecorder();
+  ~AppStreamRecorder();
+  void ProcessBuffer(std::string_view) const;
+
+private:
+  FILE* fp;
+};
+
+class AppLiveStreamOverseer;
 
 class AppStreamSubscriber : public network::RawStream {
 public:
-  AppStreamSubscriber(AppStreamProcessor&, network::SenderNotifier&);
+  AppStreamSubscriber(AppLiveStreamOverseer&, network::SenderNotifier&);
   ~AppStreamSubscriber() override;
   std::optional<std::string> GetBuffered() override;
   void ProcessFrame(std::string_view);
 
 private:
-  AppStreamProcessor& processor;
+  AppLiveStreamOverseer& overseer;
   network::SenderNotifier& notifier;
-  std::deque<std::string> streamBuffer{
-      "HTTP/1.1 200 OK\r\nContent-Type: multipart/x-mixed-replace; boundary=FRAMEBOUNDARY\r\n\r\n"};
+  std::deque<std::string> streamBuffer;
   std::mutex bufferMut;
 };
 
 class AppStreamSubscriberFactory : public network::RawStreamFactory {
 public:
-  explicit AppStreamSubscriberFactory(AppStreamProcessor&);
+  explicit AppStreamSubscriberFactory(AppLiveStreamOverseer&);
   std::unique_ptr<network::RawStream> GetStream(network::SenderNotifier&) override;
 
 private:
-  AppStreamProcessor& processor;
+  AppLiveStreamOverseer& overseer;
 };
 
-class AppStreamProcessor : public video::StreamProcessor {
+class AppLiveStreamOverseer {
 public:
-  AppStreamProcessor();
+  void ProcessBuffer(std::string_view buffer);
   void AddSubscriber(AppStreamSubscriber*);
   void RemoveSubscriber(AppStreamSubscriber*);
-  void StartStream(video::StreamOptions&&);
-  void ProcessFrame(std::string_view) override;
   std::string GetSnapshot() const;
 
 private:
   void NotifySubscribers(std::string_view) const;
   void SaveSnapshot(std::string_view);
 
-  std::thread streamThread;
-  std::atomic<bool> streamRunning;
   std::set<AppStreamSubscriber*> subscribers;
   std::mutex mutable subscribersMut;
+
   std::string snapshot;
   std::mutex mutable snapshotMut;
 };
 
+class AppStreamProcessor : public video::StreamProcessor {
+public:
+  explicit AppStreamProcessor(AppLiveStreamOverseer&);
+  void ProcessFrame(std::string_view) override;
+  void StartLiveStream();
+  void StopLiveStream();
+  void StartRecording();
+  void StopRecording();
+
+private:
+  void StartStreaming(video::StreamOptions&&);
+
+  std::thread streamThread;
+  std::atomic<bool> streamRunning;
+
+  AppLiveStreamOverseer& liveStreamOverseer;
+  std::atomic<bool> liveStreamRunning;
+
+  std::unique_ptr<AppStreamRecorder> recorder;
+  std::mutex recorderMut;
+};
+
 class AppLayer : public network::HttpProcessor {
 public:
-  explicit AppLayer(AppStreamProcessor&);
+  AppLayer(AppStreamProcessor&, AppLiveStreamOverseer&);
   ~AppLayer() = default;
   network::HttpResponse Process(const network::HttpRequest&) override;
 
@@ -65,6 +93,7 @@ private:
   network::HttpResponse BuildPlainTextRequest(network::HttpStatus, std::string_view) const;
 
   AppStreamProcessor& streamProcessor;
+  AppLiveStreamOverseer& liveStreamOverseer;
 };
 
 }  // namespace application
