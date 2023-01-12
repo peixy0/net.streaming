@@ -12,14 +12,14 @@ namespace application {
 
 class AppStreamRecorder : public codec::EncodedDataProcessor {
 public:
-  explicit AppStreamRecorder(codec::Transcoder&);
+  AppStreamRecorder(codec::Transcoder&, codec::Writer&);
   ~AppStreamRecorder();
   void ProcessBuffer(std::string_view);
-  void ProcessEncodedData(std::string_view) override;
+  void ProcessEncodedData(AVPacket*) override;
 
 private:
-  FILE* fp;
   codec::Transcoder& transcoder;
+  codec::Writer& writer;
 };
 
 class AppLiveStreamOverseer;
@@ -68,7 +68,7 @@ private:
 class AppStreamProcessor : public video::StreamProcessor {
 public:
   AppStreamProcessor(video::StreamOptions&&, AppLiveStreamOverseer&, codec::DecoderOptions&&, codec::FilterOptions&&,
-                     codec::EncoderOptions&&);
+                     codec::EncoderOptions&&, codec::WriterOptions&&);
   void ProcessFrame(std::string_view) override;
   void StartRecording();
   void StopRecording();
@@ -83,6 +83,7 @@ private:
   codec::DecoderOptions decoderOptions;
   codec::FilterOptions filterOptions;
   codec::EncoderOptions encoderOptions;
+  codec::WriterOptions writerOptions;
   std::thread recorderThread;
   std::deque<std::string> recorderBuffer;
   bool recorderRunning{false};

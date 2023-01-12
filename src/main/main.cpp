@@ -26,13 +26,6 @@ int main(int argc, char* argv[]) {
   codec::DecoderOptions decoderOptions;
   decoderOptions.codec = "mjpeg";
 
-  codec::EncoderOptions encoderOptions;
-  encoderOptions.codec = "libx264";
-  encoderOptions.width = 1280;
-  encoderOptions.height = 720;
-  encoderOptions.framerate = 30;
-  encoderOptions.bitrate = 2000000;
-
   codec::FilterOptions filterOptions;
   filterOptions.width = 1280;
   filterOptions.height = 720;
@@ -43,9 +36,23 @@ int main(int argc, char* argv[]) {
       "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
       ":text='%{localtime}':fontcolor=yellow:x=10:y=10";
 
-  application::AppStreamProcessor streamProcessor{std::move(streamOptions), liveStreamOverseer,
+  codec::EncoderOptions encoderOptions;
+  encoderOptions.codec = "libx264";
+  encoderOptions.width = 1280;
+  encoderOptions.height = 720;
+  encoderOptions.framerate = 30;
+  encoderOptions.bitrate = 2000000;
+
+  codec::WriterOptions writerOptions;
+  writerOptions.codec = encoderOptions.codec;
+  writerOptions.width = encoderOptions.width;
+  writerOptions.height = encoderOptions.height;
+  writerOptions.framerate = encoderOptions.framerate;
+  writerOptions.bitrate = encoderOptions.bitrate;
+
+  application::AppStreamProcessor streamProcessor{std::move(streamOptions),  liveStreamOverseer,
                                                   std::move(decoderOptions), std::move(filterOptions),
-                                                  std::move(encoderOptions)};
+                                                  std::move(encoderOptions), std::move(writerOptions)};
   application::AppLayer app{streamProcessor, liveStreamOverseer};
 
   network::HttpOptions httpOptions;

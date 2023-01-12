@@ -17,6 +17,7 @@ target_link_libraries(
   ${AVCODEC_LIBRARY}
   ${AVUTIL_LIBRARY}
   ${AVFILTER_LIBRARY}
+  ${AVFORMAT_LIBRARY}
 )
 
 set_target_properties(

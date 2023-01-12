@@ -41,6 +41,7 @@ project(
 find_library(AVCODEC_LIBRARY avcodec)
 find_library(AVUTIL_LIBRARY avutil)
 find_library(AVFILTER_LIBRARY avfilter)
+find_library(AVFORMAT_LIBRARY avformat)
 
 add_subdirectory(src)
 

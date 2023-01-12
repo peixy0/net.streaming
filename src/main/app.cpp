@@ -1,31 +1,23 @@
 #include "app.hpp"
 #include <spdlog/spdlog.h>
 #include <ctime>
-#include "codec.hpp"
 
 namespace application {
 
-AppStreamRecorder::AppStreamRecorder(codec::Transcoder& transcoder) : transcoder{transcoder} {
-  std::time_t tm = std::time(nullptr);
-  char buf[50];
-  std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.h264", std::localtime(&tm));
-  fp = std::fopen(buf, "w");
+AppStreamRecorder::AppStreamRecorder(codec::Transcoder& transcoder, codec::Writer& writer)
+    : transcoder{transcoder}, writer{writer} {
 }
 
 AppStreamRecorder::~AppStreamRecorder() {
-  if (fp == nullptr) {
-    return;
-  }
   transcoder.Flush(*this);
-  std::fclose(fp);
 }
 
 void AppStreamRecorder::ProcessBuffer(std::string_view buffer) {
   transcoder.Process(buffer, *this);
 }
 
-void AppStreamRecorder::ProcessEncodedData(std::string_view buffer) {
-  std::fwrite(buffer.data(), 1, buffer.size(), fp);
+void AppStreamRecorder::ProcessEncodedData(AVPacket* packet) {
+  writer.Process(packet);
 }
 
 AppStreamSubscriber::AppStreamSubscriber(AppLiveStreamOverseer& overseer, network::SenderNotifier& notifier)
@@ -113,11 +105,12 @@ void AppLiveStreamOverseer::NotifySubscribers(std::string_view frame) const {
 
 AppStreamProcessor::AppStreamProcessor(video::StreamOptions&& streamOptions, AppLiveStreamOverseer& liveStreamOverseer,
                                        codec::DecoderOptions&& decoderOptions, codec::FilterOptions&& filterOptions,
-                                       codec::EncoderOptions&& encoderOptions)
+                                       codec::EncoderOptions&& encoderOptions, codec::WriterOptions&& writerOptions)
     : liveStreamOverseer{liveStreamOverseer},
       decoderOptions{std::move(decoderOptions)},
       filterOptions{std::move(filterOptions)},
-      encoderOptions{std::move(encoderOptions)} {
+      encoderOptions{std::move(encoderOptions)},
+      writerOptions{std::move(writerOptions)} {
   StartStreaming(std::move(streamOptions));
 }
 
@@ -142,12 +135,16 @@ void AppStreamProcessor::StartRecording() {
     recorderRunning = true;
   }
   recorderThread = std::thread([this, decoderOptions = decoderOptions, filterOptions = filterOptions,
-                                encoderOptions = encoderOptions]() mutable {
+                                encoderOptions = encoderOptions, writerOptions = writerOptions]() mutable {
     codec::Decoder decoder{std::move(decoderOptions)};
     codec::Filter filter{std::move(filterOptions)};
     codec::Encoder encoder{std::move(encoderOptions)};
     codec::Transcoder transcoder{decoder, filter, encoder};
-    AppStreamRecorder recorder{transcoder};
+    std::time_t tm = std::time(nullptr);
+    char buf[50];
+    std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.mp4", std::localtime(&tm));
+    codec::Writer writer{buf, std::move(writerOptions)};
+    AppStreamRecorder recorder{transcoder, writer};
     std::unique_lock lock{recorderMut};
     recorderBuffer.clear();
     while (recorderRunning) {
