@@ -99,7 +99,7 @@ Filter::Filter(FilterOptions&& options) {
     spdlog::error("error getting filter names");
     return;
   }
-  if (avfilter_graph_parse_ptr(graph, "null", &filterIn, &filterOut, nullptr) < 0) {
+  if (avfilter_graph_parse_ptr(graph, options.description.c_str(), &filterIn, &filterOut, nullptr) < 0) {
     spdlog::error("error adding graph");
     return;
   }

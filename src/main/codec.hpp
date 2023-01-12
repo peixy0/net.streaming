@@ -27,6 +27,7 @@ struct FilterOptions {
   std::uint32_t framerate;
   PixelFormat inFormat;
   PixelFormat outFormat;
+  std::string description;
 };
 
 class Filter {

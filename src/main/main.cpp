@@ -39,6 +39,9 @@ int main(int argc, char* argv[]) {
   filterOptions.framerate = 30;
   filterOptions.inFormat = codec::PixelFormat::YUVJ422;
   filterOptions.outFormat = codec::PixelFormat::YUV420;
+  filterOptions.description =
+      "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+      ":text='%{localtime}':fontcolor=yellow:x=10:y=10";
 
   application::AppStreamProcessor streamProcessor{std::move(streamOptions), liveStreamOverseer,
                                                   std::move(decoderOptions), std::move(filterOptions),
