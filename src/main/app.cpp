@@ -8,7 +8,7 @@ namespace application {
 AppStreamRecorder::AppStreamRecorder(codec::Transcoder& transcoder) : transcoder{transcoder} {
   std::time_t tm = std::time(nullptr);
   char buf[50];
-  std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.stream", std::localtime(&tm));
+  std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.h264", std::localtime(&tm));
   fp = std::fopen(buf, "w");
 }
 
@@ -119,63 +119,68 @@ AppStreamProcessor::AppStreamProcessor(video::StreamOptions&& streamOptions, App
       filterOptions{std::move(filterOptions)},
       encoderOptions{std::move(encoderOptions)} {
   StartStreaming(std::move(streamOptions));
-  StartLiveStream();
 }
 
 void AppStreamProcessor::StartStreaming(video::StreamOptions&& streamOptions) {
-  streamRunning = false;
-  if (streamThread.joinable()) {
-    streamThread.join();
-  }
-  streamRunning = true;
   streamThread = std::thread([this, streamOptions = std::move(streamOptions)]() mutable {
     auto device = video::Device("/dev/video0");
     auto stream = device.GetStream(std::move(streamOptions));
-    while (streamRunning) {
+    while (true) {
       spdlog::debug("processing new frame");
       stream.ProcessFrame(*this);
     }
   });
 }
 
-void AppStreamProcessor::StartLiveStream() {
-  liveStreamRunning = true;
-}
-
-void AppStreamProcessor::StopLiveStream() {
-  liveStreamRunning = false;
-}
-
 void AppStreamProcessor::StartRecording() {
-  std::lock_guard lock{recorderMut};
-  auto decoderOptionsCopy = decoderOptions;
-  decoder = std::make_unique<codec::Decoder>(std::move(decoderOptionsCopy));
-  auto encoderOptionsCopy = encoderOptions;
-  encoder = std::make_unique<codec::Encoder>(std::move(encoderOptions));
-  auto filterOptionsCopy = filterOptions;
-  filter = std::make_unique<codec::Filter>(std::move(filterOptionsCopy));
-  transcoder = std::make_unique<codec::Transcoder>(*decoder, *filter, *encoder);
-  recorder = std::make_unique<AppStreamRecorder>(*transcoder);
+  StopRecording();
+  if (recorderThread.joinable()) {
+    recorderThread.join();
+  }
+  {
+    std::lock_guard lock{recorderMut};
+    recorderRunning = true;
+  }
+  recorderThread = std::thread([this, decoderOptions = decoderOptions, filterOptions = filterOptions,
+                                encoderOptions = encoderOptions]() mutable {
+    codec::Decoder decoder{std::move(decoderOptions)};
+    codec::Filter filter{std::move(filterOptions)};
+    codec::Encoder encoder{std::move(encoderOptions)};
+    codec::Transcoder transcoder{decoder, filter, encoder};
+    AppStreamRecorder recorder{transcoder};
+    std::unique_lock lock{recorderMut};
+    recorderBuffer.clear();
+    while (recorderRunning) {
+      recorderCv.wait(lock, [this] { return not recorderRunning or not recorderBuffer.empty(); });
+      while (not recorderBuffer.empty()) {
+        auto buffer = recorderBuffer.front();
+        recorderBuffer.pop_front();
+        recorder.ProcessBuffer(buffer);
+      }
+    }
+  });
 }
 
 void AppStreamProcessor::StopRecording() {
+  std::unique_lock lock{recorderMut};
+  recorderRunning = false;
+  lock.unlock();
+  recorderCv.notify_one();
+}
+
+bool AppStreamProcessor::IsRecording() const {
   std::lock_guard lock{recorderMut};
-  recorder.reset();
-  transcoder.reset();
-  decoder.reset();
-  filter.reset();
-  encoder.reset();
+  return recorderRunning;
 }
 
 void AppStreamProcessor::ProcessFrame(std::string_view frame) {
-  if (not liveStreamRunning) {
-    return;
-  }
   liveStreamOverseer.ProcessBuffer(frame);
   {
-    std::lock_guard lock{recorderMut};
-    if (recorder) {
-      recorder->ProcessBuffer(frame);
+    std::unique_lock lock{recorderMut};
+    if (recorderRunning) {
+      recorderBuffer.emplace_back(frame);
+      lock.unlock();
+      recorderCv.notify_one();
     }
   }
 }
@@ -203,16 +208,10 @@ network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
     resp.body = std::move(payload);
     return resp;
   }
+  if (req.uri == "/recording") {
+    return BuildPlainTextRequest(network::HttpStatus::OK, streamProcessor.IsRecording() ? "yes" : "no");
+  }
   if (req.uri == "/control") {
-    const auto liveStreamControl = req.query.find("streaming");
-    if (liveStreamControl != req.query.cend()) {
-      if (liveStreamControl->second == "on") {
-        streamProcessor.StartLiveStream();
-      }
-      if (liveStreamControl->second == "off") {
-        streamProcessor.StopLiveStream();
-      }
-    }
     const auto recordingControl = req.query.find("recording");
     if (recordingControl != req.query.cend()) {
       if (recordingControl->second == "on") {

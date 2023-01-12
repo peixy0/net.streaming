@@ -1,4 +1,5 @@
 #pragma once
+#include <condition_variable>
 #include <deque>
 #include <mutex>
 #include <set>
@@ -69,29 +70,24 @@ public:
   AppStreamProcessor(video::StreamOptions&&, AppLiveStreamOverseer&, codec::DecoderOptions&&, codec::FilterOptions&&,
                      codec::EncoderOptions&&);
   void ProcessFrame(std::string_view) override;
-  void StartLiveStream();
-  void StopLiveStream();
   void StartRecording();
   void StopRecording();
+  bool IsRecording() const;
 
 private:
   void StartStreaming(video::StreamOptions&&);
 
   std::thread streamThread;
-  std::atomic<bool> streamRunning;
-
   AppLiveStreamOverseer& liveStreamOverseer;
-  std::atomic<bool> liveStreamRunning;
 
   codec::DecoderOptions decoderOptions;
-  std::unique_ptr<codec::Decoder> decoder;
   codec::FilterOptions filterOptions;
-  std::unique_ptr<codec::Filter> filter;
   codec::EncoderOptions encoderOptions;
-  std::unique_ptr<codec::Encoder> encoder;
-  std::unique_ptr<codec::Transcoder> transcoder;
-  std::unique_ptr<AppStreamRecorder> recorder;
-  std::mutex recorderMut;
+  std::thread recorderThread;
+  std::deque<std::string> recorderBuffer;
+  bool recorderRunning{false};
+  std::mutex mutable recorderMut;
+  std::condition_variable recorderCv;
 };
 
 class AppLayer : public network::HttpProcessor {

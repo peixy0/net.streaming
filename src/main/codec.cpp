@@ -28,7 +28,7 @@ AVPixelFormat convert(codec::PixelFormat fmt) {
 namespace codec {
 
 void DisableCodecLogs() {
-  av_log_set_level(AV_LOG_DEBUG);
+  av_log_set_level(AV_LOG_QUIET);
 }
 
 class PacketRefGuard {
@@ -162,8 +162,7 @@ Encoder::Encoder(EncoderOptions&& options) {
   context->color_range = AVCOL_RANGE_JPEG;
   av_opt_set(context->priv_data, "preset", "fast", 0);
   const auto bitrateValue = std::to_string(options.bitrate);
-  av_dict_set(&dict, "b:v", bitrateValue.c_str(), 0);
-  if (avcodec_open2(context, codec, &dict) < 0) {
+  if (avcodec_open2(context, codec, nullptr) < 0) {
     spdlog::error("error initializng encoder context");
     return;
   }
@@ -191,7 +190,6 @@ Encoder::Encoder(EncoderOptions&& options) {
 }
 
 Encoder::~Encoder() {
-  av_dict_free(&dict);
   av_packet_free(&packet);
   av_frame_free(&frame);
   avcodec_free_context(&context);

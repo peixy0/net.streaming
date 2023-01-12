@@ -70,7 +70,6 @@ private:
   void GetEncodedPacket(EncodedDataProcessor&) const;
 
   AVCodecContext* context{nullptr};
-  AVDictionary* dict{nullptr};
   AVFrame* frame{nullptr};
   AVPacket* packet{nullptr};
   int pts{0};
