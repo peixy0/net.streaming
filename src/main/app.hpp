@@ -3,19 +3,22 @@
 #include <mutex>
 #include <set>
 #include <thread>
+#include "codec.hpp"
 #include "network.hpp"
 #include "video.hpp"
 
 namespace application {
 
-class AppStreamRecorder {
+class AppStreamRecorder : public codec::EncodedDataProcessor {
 public:
-  AppStreamRecorder();
+  explicit AppStreamRecorder(codec::Transcoder&);
   ~AppStreamRecorder();
-  void ProcessBuffer(std::string_view) const;
+  void ProcessBuffer(std::string_view);
+  void ProcessEncodedData(std::string_view) override;
 
 private:
   FILE* fp;
+  codec::Transcoder& transcoder;
 };
 
 class AppLiveStreamOverseer;
@@ -63,7 +66,8 @@ private:
 
 class AppStreamProcessor : public video::StreamProcessor {
 public:
-  explicit AppStreamProcessor(AppLiveStreamOverseer&);
+  AppStreamProcessor(video::StreamOptions&&, AppLiveStreamOverseer&, codec::DecoderOptions&&, codec::FilterOptions&&,
+                     codec::EncoderOptions&&);
   void ProcessFrame(std::string_view) override;
   void StartLiveStream();
   void StopLiveStream();
@@ -79,6 +83,13 @@ private:
   AppLiveStreamOverseer& liveStreamOverseer;
   std::atomic<bool> liveStreamRunning;
 
+  codec::DecoderOptions decoderOptions;
+  std::unique_ptr<codec::Decoder> decoder;
+  codec::FilterOptions filterOptions;
+  std::unique_ptr<codec::Filter> filter;
+  codec::EncoderOptions encoderOptions;
+  std::unique_ptr<codec::Encoder> encoder;
+  std::unique_ptr<codec::Transcoder> transcoder;
   std::unique_ptr<AppStreamRecorder> recorder;
   std::mutex recorderMut;
 };

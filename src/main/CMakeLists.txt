@@ -2,6 +2,8 @@ add_executable(
   net
   app.cpp
   app.hpp
+  codec.cpp
+  codec.hpp
   main.cpp
   video.cpp
   video.hpp
@@ -14,6 +16,7 @@ target_link_libraries(
   spdlog
   ${AVCODEC_LIBRARY}
   ${AVUTIL_LIBRARY}
+  ${AVFILTER_LIBRARY}
 )
 
 set_target_properties(

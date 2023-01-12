@@ -1,13 +1,11 @@
 #include "app.hpp"
 #include <spdlog/spdlog.h>
 #include <ctime>
-#include <mutex>
-#include "network.hpp"
-#include "video.hpp"
+#include "codec.hpp"
 
 namespace application {
 
-AppStreamRecorder::AppStreamRecorder() {
+AppStreamRecorder::AppStreamRecorder(codec::Transcoder& transcoder) : transcoder{transcoder} {
   std::time_t tm = std::time(nullptr);
   char buf[50];
   std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.stream", std::localtime(&tm));
@@ -18,14 +16,16 @@ AppStreamRecorder::~AppStreamRecorder() {
   if (fp == nullptr) {
     return;
   }
+  transcoder.Flush(*this);
   std::fclose(fp);
 }
 
-void AppStreamRecorder::ProcessBuffer(std::string_view frame) const {
-  std::string buf = "--FB\r\nContent-Type: image/jpeg\r\n\r\n";
-  buf += frame;
-  buf += "\r\n\r\n";
-  std::fwrite(buf.data(), 1, buf.size(), fp);
+void AppStreamRecorder::ProcessBuffer(std::string_view buffer) {
+  transcoder.Process(buffer, *this);
+}
+
+void AppStreamRecorder::ProcessEncodedData(std::string_view buffer) {
+  std::fwrite(buffer.data(), 1, buffer.size(), fp);
 }
 
 AppStreamSubscriber::AppStreamSubscriber(AppLiveStreamOverseer& overseer, network::SenderNotifier& notifier)
@@ -111,14 +111,15 @@ void AppLiveStreamOverseer::NotifySubscribers(std::string_view frame) const {
   }
 }
 
-AppStreamProcessor::AppStreamProcessor(AppLiveStreamOverseer& liveStreamOverseer)
-    : liveStreamOverseer{liveStreamOverseer} {
-  video::StreamOptions streamOptions;
-  streamOptions.format = video::StreamFormat::MJPEG;
-  streamOptions.width = 1280;
-  streamOptions.height = 720;
-  streamOptions.framerate = 30;
+AppStreamProcessor::AppStreamProcessor(video::StreamOptions&& streamOptions, AppLiveStreamOverseer& liveStreamOverseer,
+                                       codec::DecoderOptions&& decoderOptions, codec::FilterOptions&& filterOptions,
+                                       codec::EncoderOptions&& encoderOptions)
+    : liveStreamOverseer{liveStreamOverseer},
+      decoderOptions{std::move(decoderOptions)},
+      filterOptions{std::move(filterOptions)},
+      encoderOptions{std::move(encoderOptions)} {
   StartStreaming(std::move(streamOptions));
+  StartLiveStream();
 }
 
 void AppStreamProcessor::StartStreaming(video::StreamOptions&& streamOptions) {
@@ -147,12 +148,23 @@ void AppStreamProcessor::StopLiveStream() {
 
 void AppStreamProcessor::StartRecording() {
   std::lock_guard lock{recorderMut};
-  recorder = std::make_unique<AppStreamRecorder>();
+  auto decoderOptionsCopy = decoderOptions;
+  decoder = std::make_unique<codec::Decoder>(std::move(decoderOptionsCopy));
+  auto encoderOptionsCopy = encoderOptions;
+  encoder = std::make_unique<codec::Encoder>(std::move(encoderOptions));
+  auto filterOptionsCopy = filterOptions;
+  filter = std::make_unique<codec::Filter>(std::move(filterOptionsCopy));
+  transcoder = std::make_unique<codec::Transcoder>(*decoder, *filter, *encoder);
+  recorder = std::make_unique<AppStreamRecorder>(*transcoder);
 }
 
 void AppStreamProcessor::StopRecording() {
   std::lock_guard lock{recorderMut};
   recorder.reset();
+  transcoder.reset();
+  decoder.reset();
+  filter.reset();
+  encoder.reset();
 }
 
 void AppStreamProcessor::ProcessFrame(std::string_view frame) {

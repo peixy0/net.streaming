@@ -1,6 +1,7 @@
 #include <spdlog/spdlog.h>
 #include <cstring>
 #include "app.hpp"
+#include "codec.hpp"
 #include "http.hpp"
 #include "tcp.hpp"
 #include "video.hpp"
@@ -12,9 +13,37 @@ int main(int argc, char* argv[]) {
   auto* host = argv[1];
   std::uint16_t port = std::atoi(argv[2]);
   spdlog::set_level(spdlog::level::info);
+
+  video::StreamOptions streamOptions;
+  streamOptions.format = video::StreamFormat::MJPEG;
+  streamOptions.width = 1280;
+  streamOptions.height = 720;
+  streamOptions.framerate = 30;
+
   application::AppLiveStreamOverseer liveStreamOverseer;
-  application::AppStreamProcessor streamProcessor{liveStreamOverseer};
+
+  codec::DecoderOptions decoderOptions;
+  decoderOptions.codec = "mjpeg";
+
+  codec::EncoderOptions encoderOptions;
+  encoderOptions.codec = "libx264";
+  encoderOptions.width = 1280;
+  encoderOptions.height = 720;
+  encoderOptions.framerate = 30;
+  encoderOptions.bitrate = 2000000;
+
+  codec::FilterOptions filterOptions;
+  filterOptions.width = 1280;
+  filterOptions.height = 720;
+  filterOptions.framerate = 30;
+  filterOptions.inFormat = codec::PixelFormat::YUVJ422;
+  filterOptions.outFormat = codec::PixelFormat::YUV420;
+
+  application::AppStreamProcessor streamProcessor{std::move(streamOptions), liveStreamOverseer,
+                                                  std::move(decoderOptions), std::move(filterOptions),
+                                                  std::move(encoderOptions)};
   application::AppLayer app{streamProcessor, liveStreamOverseer};
+
   network::HttpOptions httpOptions;
   httpOptions.maxPayloadSize = 1 << 20;
   network::HttpLayerFactory factory{httpOptions, app};
