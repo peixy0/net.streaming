@@ -2,7 +2,9 @@
 #include <cstring>
 #include "app.hpp"
 #include "codec.hpp"
+#include "event_queue.hpp"
 #include "http.hpp"
+#include "recorder.hpp"
 #include "tcp.hpp"
 #include "video.hpp"
 
@@ -15,13 +17,8 @@ int main(int argc, char* argv[]) {
   spdlog::set_level(spdlog::level::info);
   codec::DisableCodecLogs();
 
-  video::StreamOptions streamOptions;
-  streamOptions.format = video::StreamFormat::MJPEG;
-  streamOptions.width = 1280;
-  streamOptions.height = 720;
-  streamOptions.framerate = 30;
-
-  application::AppLiveStreamOverseer liveStreamOverseer;
+  common::EventQueueFactory eventQueueFactory;
+  auto recorderEventQueue = eventQueueFactory.Create<application::RecorderEvent>();
 
   codec::DecoderOptions decoderOptions;
   decoderOptions.codec = "mjpeg";
@@ -51,11 +48,21 @@ int main(int argc, char* argv[]) {
   writerOptions.framerate = encoderOptions.framerate;
   writerOptions.bitrate = encoderOptions.bitrate;
 
-  application::AppStreamProcessor streamProcessor{std::move(streamOptions),  liveStreamOverseer,
-                                                  std::move(decoderOptions), std::move(filterOptions),
-                                                  std::move(encoderOptions), std::move(writerOptions)};
-  application::AppLayer app{streamProcessor, liveStreamOverseer};
+  video::StreamOptions streamOptions;
+  streamOptions.format = video::StreamFormat::MJPEG;
+  streamOptions.width = 1280;
+  streamOptions.height = 720;
+  streamOptions.framerate = 30;
 
+  application::AppStreamRecorderRunner recorderRunner{decoderOptions, filterOptions, encoderOptions, writerOptions,
+                                                      *recorderEventQueue};
+  recorderRunner.Run();
+
+  application::AppStreamDistributer streamDistributer;
+  application::AppStreamCapturerRunner capturerRunner{streamOptions, streamDistributer, *recorderEventQueue};
+  capturerRunner.Run();
+
+  application::AppLayer app{streamDistributer, *recorderEventQueue};
   network::HttpOptions httpOptions;
   httpOptions.maxPayloadSize = 1 << 20;
   network::HttpLayerFactory factory{httpOptions, app};

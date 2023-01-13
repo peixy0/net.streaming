@@ -4,7 +4,12 @@ add_executable(
   app.hpp
   codec.cpp
   codec.hpp
+  event_queue.hpp
   main.cpp
+  recorder.cpp
+  recorder.hpp
+  stream.cpp
+  stream.hpp
   video.cpp
   video.hpp
 )

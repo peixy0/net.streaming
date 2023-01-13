@@ -1,6 +1,5 @@
 #include "codec.hpp"
 #include <spdlog/spdlog.h>
-#include <chrono>
 
 extern "C" {
 #include <libavfilter/buffersink.h>
@@ -63,7 +62,7 @@ private:
   AVFrame* frame;
 };
 
-Decoder::Decoder(DecoderOptions&& options) {
+Decoder::Decoder(const DecoderOptions& options) {
   const auto* codec = avcodec_find_decoder_by_name(options.codec.c_str());
   if (codec == nullptr) {
     spdlog::error("error finding decoder");
@@ -132,7 +131,7 @@ void Decoder::Flush(DecodedDataProcessor& processor) const {
   GetDecodedFrame(processor);
 }
 
-Filter::Filter(FilterOptions&& options) {
+Filter::Filter(const FilterOptions& options) {
   const AVFilter* bufferIn = avfilter_get_by_name("buffer");
   const AVFilter* bufferOut = avfilter_get_by_name("buffersink");
   filterIn = avfilter_inout_alloc();
@@ -210,7 +209,7 @@ void Filter::Process(AVFrame* in, FilteredDataProcessor& processor) {
   }
 }
 
-Encoder::Encoder(EncoderOptions&& options) {
+Encoder::Encoder(const EncoderOptions& options) {
   const auto* codec = avcodec_find_encoder_by_name(options.codec.c_str());
   if (codec == nullptr) {
     spdlog::error("error finding encoder");
@@ -333,7 +332,7 @@ void Transcoder::Flush(EncodedDataProcessor& processor) {
   encoder.Flush(processor);
 }
 
-Writer::Writer(std::string_view filename, WriterOptions&& options_) : options{options_} {
+Writer::Writer(std::string_view filename, const WriterOptions& options_) : options{options_} {
   const std::string s{filename};
   if (avformat_alloc_output_context2(&formatContext, nullptr, nullptr, s.c_str()) < 0) {
     spdlog::error("error allocating output context");

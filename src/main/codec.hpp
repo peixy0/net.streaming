@@ -27,7 +27,7 @@ struct DecoderOptions {
 
 class Decoder {
 public:
-  explicit Decoder(DecoderOptions&&);
+  explicit Decoder(const DecoderOptions&);
   Decoder(const Decoder&) = delete;
   ~Decoder();
   void Decode(std::string_view, DecodedDataProcessor&) const;
@@ -58,7 +58,7 @@ struct FilterOptions {
 
 class Filter {
 public:
-  Filter(FilterOptions&&);
+  Filter(const FilterOptions&);
   ~Filter();
   void Process(AVFrame*, FilteredDataProcessor&);
 
@@ -88,7 +88,7 @@ struct EncoderOptions {
 
 class Encoder {
 public:
-  explicit Encoder(EncoderOptions&&);
+  explicit Encoder(const EncoderOptions&);
   Encoder(const Encoder&) = delete;
   ~Encoder();
   void Encode(AVFrame*, EncodedDataProcessor&);
@@ -125,7 +125,7 @@ struct WriterOptions {
 
 class Writer {
 public:
-  Writer(std::string_view, WriterOptions&&);
+  Writer(std::string_view, const WriterOptions&);
   ~Writer();
   void Process(AVPacket*);
 
