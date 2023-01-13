@@ -3,7 +3,7 @@
 
 namespace application {
 
-AppLayer::AppLayer(AppStreamDistributer& streamDistributer, common::EventQueue<RecorderEvent>& recorderEventQueue)
+AppLayer::AppLayer(AppStreamDistributer& streamDistributer, common::EventQueue<RecordingEvent>& recorderEventQueue)
     : streamDistributer{streamDistributer}, recorderEventQueue{recorderEventQueue} {
 }
 
@@ -34,11 +34,11 @@ network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
     if (recordingControl != req.query.cend()) {
       if (recordingControl->second == "on") {
         isRecording = true;
-        recorderEventQueue.Push(StartRecording{});
+        recorderEventQueue.Push(RecordingStart{});
       }
       if (recordingControl->second == "off") {
         isRecording = false;
-        recorderEventQueue.Push(StopRecording{});
+        recorderEventQueue.Push(RecordingStop{});
       }
     }
     return BuildPlainTextRequest(network::HttpStatus::OK, "OK");

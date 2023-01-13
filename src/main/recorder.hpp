@@ -11,8 +11,8 @@ namespace application {
 class AppStreamRecorder : public codec::EncodedDataProcessor {
 public:
   AppStreamRecorder(codec::Transcoder&, codec::Writer&);
-  ~AppStreamRecorder();
-  void ProcessBuffer(std::string_view);
+  ~AppStreamRecorder() override;
+  void Record(std::string_view);
   void ProcessEncodedData(AVPacket*) override;
 
 private:
@@ -20,21 +20,21 @@ private:
   codec::Writer& writer;
 };
 
-struct StartRecording {};
-struct StopRecording {};
-struct RecordBuffer {
+struct RecordingStart {};
+struct RecordingStop {};
+struct RecordingAppend {
   std::string buffer;
 };
-using RecorderEvent = std::variant<StartRecording, StopRecording, RecordBuffer>;
+using RecordingEvent = std::variant<RecordingStart, RecordingStop, RecordingAppend>;
 
 class AppStreamRecorderRunner {
 public:
   AppStreamRecorderRunner(const codec::DecoderOptions&, const codec::FilterOptions&, const codec::EncoderOptions&,
-                          const codec::WriterOptions&, common::EventQueue<RecorderEvent>&);
+                          const codec::WriterOptions&, common::EventQueue<RecordingEvent>&);
   void Run();
-  void operator()(const StartRecording&);
-  void operator()(const StopRecording&);
-  void operator()(const RecordBuffer&);
+  void operator()(const RecordingStart&);
+  void operator()(const RecordingStop&);
+  void operator()(const RecordingAppend&);
 
 private:
   codec::DecoderOptions decoderOptions;
@@ -50,7 +50,7 @@ private:
   std::unique_ptr<AppStreamRecorder> recorder;
 
   std::thread recorderThread;
-  common::EventQueue<RecorderEvent>& eventQueue;
+  common::EventQueue<RecordingEvent>& eventQueue;
 };
 
 }  // namespace application

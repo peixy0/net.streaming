@@ -8,7 +8,7 @@ namespace application {
 
 class AppLayer : public network::HttpProcessor {
 public:
-  AppLayer(AppStreamDistributer&, common::EventQueue<RecorderEvent>&);
+  AppLayer(AppStreamDistributer&, common::EventQueue<RecordingEvent>&);
   ~AppLayer() = default;
   network::HttpResponse Process(const network::HttpRequest&) override;
 
@@ -16,7 +16,7 @@ private:
   network::HttpResponse BuildPlainTextRequest(network::HttpStatus, std::string_view) const;
 
   AppStreamDistributer& streamDistributer;
-  common::EventQueue<RecorderEvent>& recorderEventQueue;
+  common::EventQueue<RecordingEvent>& recorderEventQueue;
   bool isRecording{false};
 };
 

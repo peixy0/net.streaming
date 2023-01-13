@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
   codec::DisableCodecLogs();
 
   common::EventQueueFactory eventQueueFactory;
-  auto recorderEventQueue = eventQueueFactory.Create<application::RecorderEvent>();
+  auto recorderEventQueue = eventQueueFactory.Create<application::RecordingEvent>();
 
   video::StreamOptions streamOptions;
   streamOptions.format = video::StreamFormat::MJPEG;

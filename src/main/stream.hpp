@@ -17,7 +17,7 @@ public:
   AppStreamSubscriber(AppStreamDistributer&, network::SenderNotifier&);
   ~AppStreamSubscriber() override;
   std::optional<std::string> GetBuffered() override;
-  void ProcessFrame(std::string_view);
+  void Notify(std::string_view);
 
 private:
   AppStreamDistributer& distributer;
@@ -37,7 +37,7 @@ private:
 
 class AppStreamDistributer {
 public:
-  void ProcessBuffer(std::string_view);
+  void Process(std::string_view);
   void AddSubscriber(AppStreamSubscriber*);
   void RemoveSubscriber(AppStreamSubscriber*);
   std::string GetSnapshot() const;
@@ -55,7 +55,7 @@ private:
 
 class AppStreamCapturerRunner : public video::StreamProcessor {
 public:
-  AppStreamCapturerRunner(const video::StreamOptions&, AppStreamDistributer&, common::EventQueue<RecorderEvent>&);
+  AppStreamCapturerRunner(const video::StreamOptions&, AppStreamDistributer&, common::EventQueue<RecordingEvent>&);
   void Run();
   void ProcessFrame(std::string_view) override;
 
@@ -66,7 +66,7 @@ private:
   AppStreamDistributer& streamDistributer;
 
   bool recorderRunning{false};
-  common::EventQueue<RecorderEvent>& recorderEventQueue;
+  common::EventQueue<RecordingEvent>& recorderEventQueue;
 };
 
 }  // namespace application

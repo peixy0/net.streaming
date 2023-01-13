@@ -3,11 +3,27 @@
 
 namespace application {
 
+AppStreamRecorder::AppStreamRecorder(codec::Transcoder& transcoder, codec::Writer& writer)
+    : transcoder{transcoder}, writer{writer} {
+}
+
+AppStreamRecorder::~AppStreamRecorder() {
+  transcoder.Flush(*this);
+}
+
+void AppStreamRecorder::Record(std::string_view buffer) {
+  transcoder.Process(buffer, *this);
+}
+
+void AppStreamRecorder::ProcessEncodedData(AVPacket* packet) {
+  writer.Process(packet);
+}
+
 AppStreamRecorderRunner::AppStreamRecorderRunner(const codec::DecoderOptions& decoderOptions,
                                                  const codec::FilterOptions& filterOptions,
                                                  const codec::EncoderOptions& encoderOptions,
                                                  const codec::WriterOptions& writerOptions,
-                                                 common::EventQueue<RecorderEvent>& eventQueue)
+                                                 common::EventQueue<RecordingEvent>& eventQueue)
     : decoderOptions{decoderOptions},
       filterOptions{filterOptions},
       encoderOptions{encoderOptions},
@@ -24,7 +40,7 @@ void AppStreamRecorderRunner::Run() {
   });
 }
 
-void AppStreamRecorderRunner::operator()(const StartRecording&) {
+void AppStreamRecorderRunner::operator()(const RecordingStart&) {
   std::time_t tm = std::time(nullptr);
   char buf[50];
   std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.mp4", std::localtime(&tm));
@@ -36,7 +52,7 @@ void AppStreamRecorderRunner::operator()(const StartRecording&) {
   recorder = std::make_unique<AppStreamRecorder>(*transcoder, *writer);
 }
 
-void AppStreamRecorderRunner::operator()(const StopRecording&) {
+void AppStreamRecorderRunner::operator()(const RecordingStop&) {
   recorder.reset();
   writer.reset();
   transcoder.reset();
@@ -45,26 +61,10 @@ void AppStreamRecorderRunner::operator()(const StopRecording&) {
   decoder.reset();
 }
 
-void AppStreamRecorderRunner::operator()(const RecordBuffer& recordBuffer) {
+void AppStreamRecorderRunner::operator()(const RecordingAppend& recordBuffer) {
   if (recorder) {
-    recorder->ProcessBuffer(recordBuffer.buffer);
+    recorder->Record(recordBuffer.buffer);
   }
-}
-
-AppStreamRecorder::AppStreamRecorder(codec::Transcoder& transcoder, codec::Writer& writer)
-    : transcoder{transcoder}, writer{writer} {
-}
-
-AppStreamRecorder::~AppStreamRecorder() {
-  transcoder.Flush(*this);
-}
-
-void AppStreamRecorder::ProcessBuffer(std::string_view buffer) {
-  transcoder.Process(buffer, *this);
-}
-
-void AppStreamRecorder::ProcessEncodedData(AVPacket* packet) {
-  writer.Process(packet);
 }
 
 }  // namespace application

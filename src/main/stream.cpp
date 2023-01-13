@@ -35,7 +35,7 @@ std::optional<std::string> AppStreamSubscriber::GetBuffered() {
   return result;
 }
 
-void AppStreamSubscriber::ProcessFrame(std::string_view frame) {
+void AppStreamSubscriber::Notify(std::string_view frame) {
   std::string buf = "--FB\r\nContent-Type: image/jpeg\r\n\r\n";
   buf += frame;
   buf += "\r\n\r\n";
@@ -53,7 +53,7 @@ std::unique_ptr<network::RawStream> AppStreamSubscriberFactory::GetStream(networ
   return std::make_unique<AppStreamSubscriber>(distributer, notifier);
 }
 
-void AppStreamDistributer::ProcessBuffer(std::string_view buffer) {
+void AppStreamDistributer::Process(std::string_view buffer) {
   static int skip = 0;
   if (skip++ >= 1) {
     skip = 0;
@@ -86,13 +86,13 @@ std::string AppStreamDistributer::GetSnapshot() const {
 void AppStreamDistributer::NotifySubscribers(std::string_view frame) const {
   std::lock_guard lock{subscribersMut};
   for (auto* s : subscribers) {
-    s->ProcessFrame(frame);
+    s->Notify(frame);
   }
 }
 
 AppStreamCapturerRunner::AppStreamCapturerRunner(const video::StreamOptions& streamOptions,
                                                  AppStreamDistributer& streamDistributer,
-                                                 common::EventQueue<RecorderEvent>& recorderEventQueue)
+                                                 common::EventQueue<RecordingEvent>& recorderEventQueue)
     : streamOptions{streamOptions}, streamDistributer{streamDistributer}, recorderEventQueue{recorderEventQueue} {
 }
 
@@ -101,15 +101,14 @@ void AppStreamCapturerRunner::Run() {
     auto device = video::Device("/dev/video0");
     auto stream = device.GetStream(std::move(streamOptions));
     while (true) {
-      spdlog::debug("processing new frame");
       stream.ProcessFrame(*this);
     }
   });
 }
 
 void AppStreamCapturerRunner::ProcessFrame(std::string_view frame) {
-  streamDistributer.ProcessBuffer(frame);
-  recorderEventQueue.Push(RecordBuffer{{frame.data(), frame.size()}});
+  streamDistributer.Process(frame);
+  recorderEventQueue.Push(RecordingAppend{{frame.data(), frame.size()}});
 }
 
 }  // namespace application
