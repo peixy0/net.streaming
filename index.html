@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CameraView</title>
+    <style>
+    * {
+      padding: 0;
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .stream {
+      position: absolute;
+      background: #000;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: -1;
+    }
+
+    img {
+      max-width: 100%;
+      max-height: 100%;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    button {
+      padding: 3px 10px;
+      height: 2.2em;
+    }
+
+    .control {
+      margin: 20px;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+
+    .control > * {
+      margin-right: 20px;
+      margin-bottom: 20px;
+    }
+
+    #stopRecording {
+      color: #e22;
+    }
+    </style>
+  </head>
+  <body>
+    <div class="stream">
+      <img src="/stream">
+    </div>
+    <div class="control">
+      <button id="startRecording">⬤ Start Recording</button>
+      <button id="stopRecording">⬤ Stop Recording</button>
+    </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      let startRecordingCtrl = document.querySelector('#startRecording');
+      let stopRecordingCtrl = document.querySelector('#stopRecording');
+      let recording = false;
+
+      function resetControl() {
+        startRecordingCtrl.hidden = recording;
+        stopRecordingCtrl.hidden = !recording;
+      }
+      resetControl();
+
+      fetch('/recording').then(resp => {
+        return resp.text();
+      }).then(resp => {
+        if (resp == 'yes') {
+          recording = true;
+          resetControl();
+        }
+      });
+      startRecordingCtrl.addEventListener('click', () => {
+        fetch('/control?recording=on').then(resp => {
+          recording = true;
+          resetControl();
+        })
+      });
+      stopRecordingCtrl.addEventListener('click', () => {
+        fetch('/control?recording=off').then(resp => {
+          recording = false;
+          resetControl();
+        });
+      });
+    });
+    </script>
+  </body>
+</html>
