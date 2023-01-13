@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
   filterOptions.height = 720;
   filterOptions.framerate = 30;
   filterOptions.inFormat = codec::PixelFormat::YUVJ422;
-  filterOptions.outFormat = codec::PixelFormat::YUV420;
+  filterOptions.outFormat = codec::PixelFormat::NV12;
   filterOptions.description =
       "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
       ":text='%{localtime}':fontcolor=yellow:x=10:y=10";
@@ -42,6 +42,7 @@ int main(int argc, char* argv[]) {
   encoderOptions.height = 720;
   encoderOptions.framerate = 30;
   encoderOptions.bitrate = 2000000;
+  encoderOptions.format = codec::PixelFormat::NV12;
 
   codec::WriterOptions writerOptions;
   writerOptions.codec = encoderOptions.codec;

@@ -19,6 +19,8 @@ AVPixelFormat convert(codec::PixelFormat fmt) {
       return AV_PIX_FMT_YUV422P;
     case codec::PixelFormat::YUV420:
       return AV_PIX_FMT_YUV420P;
+    case codec::PixelFormat::NV12:
+      return AV_PIX_FMT_NV12;
   }
   return AV_PIX_FMT_YUV420P;
 }
@@ -220,6 +222,7 @@ Encoder::Encoder(EncoderOptions&& options) {
     return;
   }
   context->bit_rate = options.bitrate;
+  context->bit_rate_tolerance = options.bitrate / 2;
   context->width = options.width;
   context->height = options.height;
   context->time_base.num = 1;
@@ -227,7 +230,7 @@ Encoder::Encoder(EncoderOptions&& options) {
   context->framerate.num = options.framerate;
   context->framerate.den = 1;
   context->gop_size = 12;
-  context->pix_fmt = AV_PIX_FMT_YUV420P;
+  context->pix_fmt = convert(options.format);
   context->color_range = AVCOL_RANGE_JPEG;
   av_opt_set(context->priv_data, "preset", "fast", 0);
   if (avcodec_open2(context, codec, nullptr) < 0) {
@@ -369,8 +372,10 @@ Writer::Writer(std::string_view filename, WriterOptions&& options_) : options{op
 }
 
 Writer::~Writer() {
-  av_write_trailer(formatContext);
-  avio_close(formatContext->pb);
+  if (formatContext and formatContext->pb) {
+    av_write_trailer(formatContext);
+    avio_close(formatContext->pb);
+  }
   av_packet_free(&packet);
   avformat_free_context(formatContext);
   formatContext = nullptr;
