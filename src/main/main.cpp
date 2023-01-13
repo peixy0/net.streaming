@@ -20,26 +20,32 @@ int main(int argc, char* argv[]) {
   common::EventQueueFactory eventQueueFactory;
   auto recorderEventQueue = eventQueueFactory.Create<application::RecorderEvent>();
 
+  video::StreamOptions streamOptions;
+  streamOptions.format = video::StreamFormat::MJPEG;
+  streamOptions.width = 1280;
+  streamOptions.height = 720;
+  streamOptions.framerate = 30;
+
   codec::DecoderOptions decoderOptions;
   decoderOptions.codec = "mjpeg";
 
   codec::FilterOptions filterOptions;
-  filterOptions.width = 1280;
-  filterOptions.height = 720;
-  filterOptions.framerate = 30;
+  filterOptions.width = streamOptions.width;
+  filterOptions.height = streamOptions.height;
+  filterOptions.framerate = streamOptions.framerate;
   filterOptions.inFormat = codec::PixelFormat::YUVJ422;
-  filterOptions.outFormat = codec::PixelFormat::NV12;
+  filterOptions.outFormat = codec::PixelFormat::YUV420;
   filterOptions.description =
       "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
       ":text='%{localtime}':fontcolor=yellow:x=10:y=10";
 
   codec::EncoderOptions encoderOptions;
   encoderOptions.codec = "libx264";
-  encoderOptions.width = 1280;
-  encoderOptions.height = 720;
-  encoderOptions.framerate = 30;
+  encoderOptions.width = filterOptions.width;
+  encoderOptions.height = filterOptions.height;
+  encoderOptions.framerate = filterOptions.framerate;
   encoderOptions.bitrate = 2000000;
-  encoderOptions.format = codec::PixelFormat::NV12;
+  encoderOptions.format = filterOptions.outFormat;
 
   codec::WriterOptions writerOptions;
   writerOptions.codec = encoderOptions.codec;
@@ -47,12 +53,6 @@ int main(int argc, char* argv[]) {
   writerOptions.height = encoderOptions.height;
   writerOptions.framerate = encoderOptions.framerate;
   writerOptions.bitrate = encoderOptions.bitrate;
-
-  video::StreamOptions streamOptions;
-  streamOptions.format = video::StreamFormat::MJPEG;
-  streamOptions.width = 1280;
-  streamOptions.height = 720;
-  streamOptions.framerate = 30;
 
   application::AppStreamRecorderRunner recorderRunner{decoderOptions, filterOptions, encoderOptions, writerOptions,
                                                       *recorderEventQueue};
