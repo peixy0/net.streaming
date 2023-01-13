@@ -34,7 +34,7 @@ endif()
 add_subdirectory(externals/spdlog)
 
 project(
-  net
+  net.streaming
   VERSION 1.0
 )
 

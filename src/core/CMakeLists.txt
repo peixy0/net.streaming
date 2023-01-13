@@ -1,5 +1,5 @@
 add_library(
-  net.core
+  core
   file.cpp
   file.hpp
   http.cpp
@@ -9,16 +9,22 @@ add_library(
   parser.hpp
   tcp.cpp
   tcp.hpp
+
+  codec.cpp
+  codec.hpp
+  event_queue.hpp
+  video.cpp
+  video.hpp
 )
 
 target_link_libraries(
-  net.core
+  core
   PRIVATE
   spdlog
 )
 
 target_include_directories(
-  net.core
+  core
   PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
 )

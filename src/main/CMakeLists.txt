@@ -1,23 +1,18 @@
 add_executable(
-  net
+  app
   app.cpp
   app.hpp
-  codec.cpp
-  codec.hpp
-  event_queue.hpp
   main.cpp
   recorder.cpp
   recorder.hpp
   stream.cpp
   stream.hpp
-  video.cpp
-  video.hpp
 )
 
 target_link_libraries(
-  net
+  app
   PRIVATE
-  net.core
+  core
   spdlog
   ${AVCODEC_LIBRARY}
   ${AVUTIL_LIBRARY}
@@ -26,7 +21,7 @@ target_link_libraries(
 )
 
 set_target_properties(
-  net
+  app
   PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY
   "${CMAKE_BINARY_DIR}"

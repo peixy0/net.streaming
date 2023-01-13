@@ -16,7 +16,7 @@ target_link_libraries(
   gtest_main
   gmock
   spdlog
-  net.core
+  core
 )
 
 set_target_properties(
