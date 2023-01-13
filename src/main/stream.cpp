@@ -18,32 +18,30 @@ AppStreamSubscriber::~AppStreamSubscriber() {
 }
 
 std::optional<std::string> AppStreamSubscriber::GetBuffered() {
-  bool bufferEmpty{false};
-  std::optional<std::string> result;
+  std::string result;
   {
     std::lock_guard lock{bufferMut};
-    if (streamBuffer.empty()) {
-      return "";
+    while (not streamBuffer.empty()) {
+      result += streamBuffer.front();
+      streamBuffer.pop_front();
     }
-    result = streamBuffer.front();
-    streamBuffer.pop_front();
-    bufferEmpty = streamBuffer.empty();
-  }
-  if (bufferEmpty) {
     notifier.UnmarkPending();
   }
   return result;
 }
 
 void AppStreamSubscriber::Notify(std::string_view frame) {
+  static constexpr int maxBufferSize = 30;
   std::string buf = "--FB\r\nContent-Type: image/jpeg\r\n\r\n";
   buf += frame;
   buf += "\r\n\r\n";
   {
     std::lock_guard lock{bufferMut};
-    streamBuffer.emplace_back(std::move(buf));
+    if (streamBuffer.size() < maxBufferSize) {
+      streamBuffer.emplace_back(std::move(buf));
+    }
+    notifier.MarkPending();
   }
-  notifier.MarkPending();
 }
 
 AppStreamSubscriberFactory::AppStreamSubscriberFactory(AppStreamDistributer& distributer) : distributer{distributer} {
