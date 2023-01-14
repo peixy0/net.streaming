@@ -17,8 +17,7 @@ int main(int argc, char* argv[]) {
   spdlog::set_level(spdlog::level::info);
   codec::DisableCodecLogs();
 
-  common::EventQueueFactory eventQueueFactory;
-  auto recorderEventQueue = eventQueueFactory.Create<application::RecordingEvent>();
+  common::ConcreteEventQueue<application::RecordingEvent> recorderEventQueue;
 
   application::RecorderOptions recorderOptions;
   recorderOptions.maxRecordingTimeInSeconds = 10 * 60;
@@ -57,15 +56,15 @@ int main(int argc, char* argv[]) {
   writerOptions.framerate = encoderOptions.framerate;
   writerOptions.bitrate = encoderOptions.bitrate;
 
-  application::AppStreamRecorderRunner recorderRunner{*recorderEventQueue, recorderOptions, decoderOptions,
-                                                      filterOptions,       encoderOptions,  writerOptions};
+  application::AppStreamRecorderRunner recorderRunner{recorderEventQueue, recorderOptions, decoderOptions,
+                                                      filterOptions,      encoderOptions,  writerOptions};
   recorderRunner.Run();
 
   application::AppStreamDistributer streamDistributer;
-  application::AppStreamCapturerRunner capturerRunner{streamOptions, streamDistributer, *recorderEventQueue};
+  application::AppStreamCapturerRunner capturerRunner{streamOptions, streamDistributer, recorderEventQueue};
   capturerRunner.Run();
 
-  application::AppLayer app{streamDistributer, *recorderEventQueue};
+  application::AppLayer app{streamDistributer, recorderEventQueue};
   network::HttpOptions httpOptions;
   httpOptions.maxPayloadSize = 1 << 20;
   network::HttpLayerFactory factory{httpOptions, app};

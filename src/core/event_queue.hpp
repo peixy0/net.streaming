@@ -2,7 +2,6 @@
 
 #include <condition_variable>
 #include <deque>
-#include <memory>
 #include <mutex>
 
 namespace common {
@@ -41,14 +40,6 @@ private:
   std::deque<Event> events;
   std::mutex mut;
   std::condition_variable cv;
-};
-
-class EventQueueFactory {
-public:
-  template <typename Event>
-  std::unique_ptr<EventQueue<Event>> Create() {
-    return std::make_unique<ConcreteEventQueue<Event>>();
-  }
 };
 
 }  // namespace common
