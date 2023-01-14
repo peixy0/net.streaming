@@ -91,7 +91,7 @@ struct FileHttpResponse {
 };
 
 struct RawStreamHttpResponse {
-  std::unique_ptr<RawStreamFactory> streamFactory;
+  RawStreamFactory& streamFactory;
 };
 
 using HttpResponse = std::variant<PreparedHttpResponse, FileHttpResponse, RawStreamHttpResponse>;

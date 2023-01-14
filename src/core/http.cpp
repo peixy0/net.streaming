@@ -57,7 +57,7 @@ void HttpResponseVisitor::operator()(FileHttpResponse&& response) const {
 }
 
 void HttpResponseVisitor::operator()(RawStreamHttpResponse&& response) const {
-  auto stream = response.streamFactory->GetStream(sender);
+  auto stream = response.streamFactory.GetStream(sender);
   sender.Send(std::move(stream));
 }
 

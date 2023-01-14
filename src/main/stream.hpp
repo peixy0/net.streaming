@@ -51,10 +51,10 @@ private:
   application::AppStreamDistributer& h264Distributer;
 
   AppStreamProcessorOptions processorOptions;
-  codec::DecoderOptions decoderOptions;
-  codec::FilterOptions filterOptions;
-  codec::EncoderOptions encoderOptions;
-  codec::WriterOptions writerOptions;
+  const codec::DecoderOptions decoderOptions;
+  const codec::FilterOptions filterOptions;
+  const codec::EncoderOptions encoderOptions;
+  const codec::WriterOptions writerOptions;
 
   std::time_t recorderStartTime;
   std::unique_ptr<codec::Decoder> decoder;

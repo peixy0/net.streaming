@@ -15,8 +15,8 @@ public:
 private:
   network::HttpResponse BuildPlainTextRequest(network::HttpStatus, std::string_view) const;
 
-  AppStreamDistributer& mjpegDistributer;
-  AppStreamDistributer& h264Distributer;
+  AppMjpegStreamFactory mjpegStreamFactory;
+  AppH264StreamFactory h264StreamFactory;
   AppStreamSnapshotSaver& snapshotSaver;
 
   AppStreamProcessorOptions streamProcessorOptions;
