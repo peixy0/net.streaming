@@ -1,0 +1,14 @@
+[Unit]
+Description=Streaming Agent Service
+After=network.target syslog.target
+
+[Service]
+Type=simple
+Restart=always
+User=deploy
+Group=deploy
+WorkingDirectory=/storage
+ExecStart=build/app 0.0.0.0 13099
+
+[Install]
+WantedBy=multi-user.target
