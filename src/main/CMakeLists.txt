@@ -3,8 +3,6 @@ add_executable(
   app.cpp
   app.hpp
   main.cpp
-  recorder.cpp
-  recorder.hpp
   stream.cpp
   stream.hpp
 )

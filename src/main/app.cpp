@@ -1,10 +1,15 @@
 #include "app.hpp"
 #include <spdlog/spdlog.h>
+#include "stream.hpp"
 
 namespace application {
 
-AppLayer::AppLayer(AppStreamDistributer& streamDistributer, common::EventQueue<RecordingEvent>& recorderEventQueue)
-    : streamDistributer{streamDistributer}, recorderEventQueue{recorderEventQueue} {
+AppLayer::AppLayer(AppStreamDistributer& streamDistributer, AppStreamDistributer& h264Distributer,
+    AppStreamSnapshotSaver& snapshotSaver, common::EventQueue<StreamProcessorEvent>& processorEventQueue)
+    : mjpegDistributer{streamDistributer},
+      h264Distributer{h264Distributer},
+      snapshotSaver{snapshotSaver},
+      streamProcessorEventQueue{processorEventQueue} {
 }
 
 network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
@@ -15,16 +20,19 @@ network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
     resp.headers.emplace("Content-Type", "text/html");
     return resp;
   }
-  if (req.uri == "/stream") {
-    return network::RawStreamHttpResponse{std::make_unique<AppStreamSubscriberFactory>(streamDistributer)};
-  }
   if (req.uri == "/snapshot") {
-    const auto payload = streamDistributer.GetSnapshot();
+    const auto payload = snapshotSaver.GetSnapshot();
     network::PreparedHttpResponse resp;
     resp.status = network::HttpStatus::OK;
     resp.headers.emplace("Content-Type", "image/jpeg");
     resp.body = std::move(payload);
     return resp;
+  }
+  if (req.uri == "/mjpeg") {
+    return network::RawStreamHttpResponse{std::make_unique<AppMjpegStreamFactory>(mjpegDistributer)};
+  }
+  if (req.uri == "/h264") {
+    return network::RawStreamHttpResponse{std::make_unique<AppH264StreamFactory>(h264Distributer)};
   }
   if (req.uri == "/recording") {
     return BuildPlainTextRequest(network::HttpStatus::OK, isRecording ? "yes" : "no");
@@ -34,11 +42,11 @@ network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
     if (recordingControl != req.query.cend()) {
       if (recordingControl->second == "on") {
         isRecording = true;
-        recorderEventQueue.Push(RecordingStart{});
+        streamProcessorEventQueue.Push(RecordingStart{});
       }
       if (recordingControl->second == "off") {
         isRecording = false;
-        recorderEventQueue.Push(RecordingStop{});
+        streamProcessorEventQueue.Push(RecordingStop{});
       }
     }
     return BuildPlainTextRequest(network::HttpStatus::OK, "OK");

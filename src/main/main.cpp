@@ -4,7 +4,7 @@
 #include "codec.hpp"
 #include "event_queue.hpp"
 #include "http.hpp"
-#include "recorder.hpp"
+#include "stream.hpp"
 #include "tcp.hpp"
 #include "video.hpp"
 
@@ -17,10 +17,13 @@ int main(int argc, char* argv[]) {
   spdlog::set_level(spdlog::level::info);
   codec::DisableCodecLogs();
 
-  common::ConcreteEventQueue<application::RecordingEvent> recorderEventQueue;
+  common::ConcreteEventQueue<application::StreamProcessorEvent> streamProcessorEventQueue;
 
-  application::RecorderOptions recorderOptions;
-  recorderOptions.maxRecordingTimeInSeconds = 10 * 60;
+  application::AppStreamProcessorOptions streamProcessorOptions;
+  streamProcessorOptions.maxRecordingTimeInSeconds = 10 * 60;
+  streamProcessorOptions.distributeMjpeg = true;
+  streamProcessorOptions.distributeH264 = false;
+  streamProcessorOptions.saveRecord = false;
 
   video::StreamOptions streamOptions;
   streamOptions.format = video::StreamFormat::MJPEG;
@@ -56,15 +59,18 @@ int main(int argc, char* argv[]) {
   writerOptions.framerate = encoderOptions.framerate;
   writerOptions.bitrate = encoderOptions.bitrate;
 
-  application::AppStreamRecorderRunner recorderRunner{
-      recorderEventQueue, recorderOptions, decoderOptions, filterOptions, encoderOptions, writerOptions};
-  recorderRunner.Run();
+  application::AppStreamDistributer mjpegDistributer;
+  application::AppStreamDistributer h264Distributer;
+  application::AppStreamSnapshotSaver snapshotSaver{mjpegDistributer};
 
-  application::AppStreamDistributer streamDistributer;
-  application::AppStreamCapturerRunner capturerRunner{streamOptions, streamDistributer, recorderEventQueue};
+  application::AppStreamProcessorRunner processorRunner{streamProcessorEventQueue, mjpegDistributer, h264Distributer,
+      streamProcessorOptions, decoderOptions, filterOptions, encoderOptions, writerOptions};
+  processorRunner.Run();
+
+  application::AppStreamCapturerRunner capturerRunner{streamOptions, streamProcessorEventQueue};
   capturerRunner.Run();
 
-  application::AppLayer app{streamDistributer, recorderEventQueue};
+  application::AppLayer app{mjpegDistributer, h264Distributer, snapshotSaver, streamProcessorEventQueue};
   network::HttpOptions httpOptions;
   httpOptions.maxPayloadSize = 1 << 20;
   network::HttpLayerFactory factory{httpOptions, app};
