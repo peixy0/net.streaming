@@ -100,7 +100,7 @@ private:
   AVCodecContext* context{nullptr};
   AVFrame* frame{nullptr};
   AVPacket* packet{nullptr};
-  int pts{0};
+  std::int64_t pts{0};
 };
 
 class Transcoder {
