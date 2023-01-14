@@ -89,8 +89,7 @@ void AppStreamDistributer::NotifySubscribers(std::string_view frame) const {
 }
 
 AppStreamCapturerRunner::AppStreamCapturerRunner(const video::StreamOptions& streamOptions,
-                                                 AppStreamDistributer& streamDistributer,
-                                                 common::EventQueue<RecordingEvent>& recorderEventQueue)
+    AppStreamDistributer& streamDistributer, common::EventQueue<RecordingEvent>& recorderEventQueue)
     : streamOptions{streamOptions}, streamDistributer{streamDistributer}, recorderEventQueue{recorderEventQueue} {
 }
 

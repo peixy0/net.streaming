@@ -20,11 +20,9 @@ void AppStreamRecorder::ProcessEncodedData(AVPacket* packet) {
 }
 
 AppStreamRecorderRunner::AppStreamRecorderRunner(common::EventQueue<RecordingEvent>& eventQueue,
-                                                 const RecorderOptions& recorderOptions,
-                                                 const codec::DecoderOptions& decoderOptions,
-                                                 const codec::FilterOptions& filterOptions,
-                                                 const codec::EncoderOptions& encoderOptions,
-                                                 const codec::WriterOptions& writerOptions)
+    const RecorderOptions& recorderOptions, const codec::DecoderOptions& decoderOptions,
+    const codec::FilterOptions& filterOptions, const codec::EncoderOptions& encoderOptions,
+    const codec::WriterOptions& writerOptions)
     : eventQueue{eventQueue},
       recorderOptions{recorderOptions},
       decoderOptions{decoderOptions},

@@ -34,7 +34,7 @@ using RecordingEvent = std::variant<RecordingStart, RecordingStop, RecordingAppe
 class AppStreamRecorderRunner {
 public:
   AppStreamRecorderRunner(common::EventQueue<RecordingEvent>&, const RecorderOptions&, const codec::DecoderOptions&,
-                          const codec::FilterOptions&, const codec::EncoderOptions&, const codec::WriterOptions&);
+      const codec::FilterOptions&, const codec::EncoderOptions&, const codec::WriterOptions&);
   void Run();
   void StartRecording();
   void StopRecording();

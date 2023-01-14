@@ -56,8 +56,8 @@ int main(int argc, char* argv[]) {
   writerOptions.framerate = encoderOptions.framerate;
   writerOptions.bitrate = encoderOptions.bitrate;
 
-  application::AppStreamRecorderRunner recorderRunner{recorderEventQueue, recorderOptions, decoderOptions,
-                                                      filterOptions,      encoderOptions,  writerOptions};
+  application::AppStreamRecorderRunner recorderRunner{
+      recorderEventQueue, recorderOptions, decoderOptions, filterOptions, encoderOptions, writerOptions};
   recorderRunner.Run();
 
   application::AppStreamDistributer streamDistributer;

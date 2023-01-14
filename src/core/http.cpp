@@ -61,8 +61,8 @@ void HttpResponseVisitor::operator()(RawStreamHttpResponse&& response) const {
   sender.Send(std::move(stream));
 }
 
-HttpLayer::HttpLayer(const HttpOptions& options, std::unique_ptr<HttpParser> parser, HttpProcessor& processor,
-                     TcpSender& sender)
+HttpLayer::HttpLayer(
+    const HttpOptions& options, std::unique_ptr<HttpParser> parser, HttpProcessor& processor, TcpSender& sender)
     : options{options}, parser{std::move(parser)}, processor{processor}, sender{sender} {
 }
 

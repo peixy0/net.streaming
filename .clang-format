@@ -1,11 +1,12 @@
 BasedOnStyle: Google
 
-ColumnLimit: 120
 AccessModifierOffset: -2
-DerivePointerAlignment: false
-PointerAlignment: Left
+AlignAfterOpenBracket: DontAlign
 AllowShortFunctionsOnASingleLine: None
-IncludeBlocks: Merge
-MaxEmptyLinesToKeep: 1
+ColumnLimit: 120
+DerivePointerAlignment: false
 EmptyLineBeforeAccessModifier: Always
+IncludeBlocks: Merge
 KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+PointerAlignment: Left

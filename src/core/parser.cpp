@@ -58,8 +58,8 @@ std::optional<HttpRequest> ConcreteHttpParser::Parse() {
   }
   std::string body = payload.substr(0, bodyRemaining);
   payload.erase(0, bodyRemaining);
-  HttpRequest request{std::move(*method), std::move(uriBase), std::move(*version),
-                      std::move(headers), std::move(query),   std::move(body)};
+  HttpRequest request{std::move(*method), std::move(uriBase), std::move(*version), std::move(headers), std::move(query),
+      std::move(body)};
   Reset();
   return request;
 }

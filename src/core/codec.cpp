@@ -137,7 +137,7 @@ Filter::Filter(const FilterOptions& options) {
   graph = avfilter_graph_alloc();
   char args[512];
   std::snprintf(args, sizeof args, "video_size=%dx%d:pix_fmt=%d:time_base=1/%d:pixel_aspect=1/1", options.width,
-                options.height, convert(options.inFormat), options.framerate);
+      options.height, convert(options.inFormat), options.framerate);
   if (avfilter_graph_create_filter(&contextIn, bufferIn, "in", args, nullptr, graph) < 0) {
     spdlog::error("error creating in filter");
     return;
@@ -148,7 +148,7 @@ Filter::Filter(const FilterOptions& options) {
   }
   const auto outFmt = convert(options.outFormat);
   if (av_opt_set_bin(contextOut, "pix_fmts", reinterpret_cast<const std::uint8_t*>(&outFmt), sizeof outFmt,
-                     AV_OPT_SEARCH_CHILDREN) < 0) {
+          AV_OPT_SEARCH_CHILDREN) < 0) {
     spdlog::error("error setting out format");
     return;
   }

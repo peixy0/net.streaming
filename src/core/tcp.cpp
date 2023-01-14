@@ -174,8 +174,8 @@ void ConcreteTcpSender::UnmarkPending() {
   supervisor.UnmarkSenderPending(peer);
 }
 
-TcpConnectionContext::TcpConnectionContext(int fd, std::unique_ptr<TcpReceiver> receiver,
-                                           std::unique_ptr<TcpSender> sender)
+TcpConnectionContext::TcpConnectionContext(
+    int fd, std::unique_ptr<TcpReceiver> receiver, std::unique_ptr<TcpSender> sender)
     : fd{fd}, receiver{std::move(receiver)}, sender{std::move(sender)} {
   spdlog::info("tcp connection established: {}", fd);
 }
