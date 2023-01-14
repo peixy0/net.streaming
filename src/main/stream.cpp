@@ -37,7 +37,7 @@ void AppStreamProcessorRunner::Process(std::string_view buffer) {
     const auto now = std::time(nullptr);
     const auto diff = std::difftime(now, recorderStartTime);
     if (diff >= processorOptions.maxRecordingTimeInSeconds) {
-      StartRecording();
+      Reset();
     }
   }
   if (processorOptions.distributeH264 or processorOptions.saveRecord) {
@@ -75,22 +75,14 @@ void AppStreamProcessorRunner::Reset() {
   }
 }
 
-void AppStreamProcessorRunner::StartRecording() {
+void AppStreamProcessorRunner::operator()(const RecordingStart&) {
   processorOptions.saveRecord = true;
   Reset();
 }
 
-void AppStreamProcessorRunner::StopRecording() {
+void AppStreamProcessorRunner::operator()(const RecordingStop&) {
   processorOptions.saveRecord = false;
   Reset();
-}
-
-void AppStreamProcessorRunner::operator()(const RecordingStart&) {
-  StartRecording();
-}
-
-void AppStreamProcessorRunner::operator()(const RecordingStop&) {
-  StopRecording();
 }
 
 void AppStreamProcessorRunner::operator()(const ProcessBuffer& recordBuffer) {

@@ -32,10 +32,6 @@ public:
       application::AppStreamDistributer&, const AppStreamProcessorOptions&, const codec::DecoderOptions&,
       const codec::FilterOptions&, const codec::EncoderOptions&, const codec::WriterOptions&);
   void Run();
-  void StartRecording();
-  void StopRecording();
-  void StartTranscoding();
-  void StopTranscoding();
   void Process(std::string_view);
   void ProcessEncodedData(AVPacket*) override;
   void operator()(const RecordingStart&);
