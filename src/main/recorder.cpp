@@ -19,16 +19,18 @@ void AppStreamRecorder::ProcessEncodedData(AVPacket* packet) {
   writer.Process(packet);
 }
 
-AppStreamRecorderRunner::AppStreamRecorderRunner(const codec::DecoderOptions& decoderOptions,
+AppStreamRecorderRunner::AppStreamRecorderRunner(common::EventQueue<RecordingEvent>& eventQueue,
+                                                 const RecorderOptions& recorderOptions,
+                                                 const codec::DecoderOptions& decoderOptions,
                                                  const codec::FilterOptions& filterOptions,
                                                  const codec::EncoderOptions& encoderOptions,
-                                                 const codec::WriterOptions& writerOptions,
-                                                 common::EventQueue<RecordingEvent>& eventQueue)
-    : decoderOptions{decoderOptions},
+                                                 const codec::WriterOptions& writerOptions)
+    : eventQueue{eventQueue},
+      recorderOptions{recorderOptions},
+      decoderOptions{decoderOptions},
       filterOptions{filterOptions},
       encoderOptions{encoderOptions},
-      writerOptions{writerOptions},
-      eventQueue{eventQueue} {
+      writerOptions{writerOptions} {
 }
 
 void AppStreamRecorderRunner::Run() {
@@ -40,10 +42,11 @@ void AppStreamRecorderRunner::Run() {
   });
 }
 
-void AppStreamRecorderRunner::operator()(const RecordingStart&) {
-  std::time_t tm = std::time(nullptr);
+void AppStreamRecorderRunner::StartRecording() {
+  StopRecording();
+  startTime = std::time(nullptr);
   char buf[50];
-  std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.mp4", std::localtime(&tm));
+  std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.mp4", std::localtime(&startTime));
   decoder = std::make_unique<codec::Decoder>(decoderOptions);
   filter = std::make_unique<codec::Filter>(filterOptions);
   encoder = std::make_unique<codec::Encoder>(encoderOptions);
@@ -52,7 +55,7 @@ void AppStreamRecorderRunner::operator()(const RecordingStart&) {
   recorder = std::make_unique<AppStreamRecorder>(*transcoder, *writer);
 }
 
-void AppStreamRecorderRunner::operator()(const RecordingStop&) {
+void AppStreamRecorderRunner::StopRecording() {
   recorder.reset();
   writer.reset();
   transcoder.reset();
@@ -61,10 +64,30 @@ void AppStreamRecorderRunner::operator()(const RecordingStop&) {
   decoder.reset();
 }
 
-void AppStreamRecorderRunner::operator()(const RecordingAppend& recordBuffer) {
-  if (recorder) {
-    recorder->Record(recordBuffer.buffer);
+void AppStreamRecorderRunner::Record(std::string_view buffer) {
+  if (not recorder) {
+    return;
   }
+  if (recorderOptions.maxRecordingTimeInSeconds > 0) {
+    const auto now = std::time(nullptr);
+    const auto diff = std::difftime(now, startTime);
+    if (diff >= recorderOptions.maxRecordingTimeInSeconds) {
+      StartRecording();
+    }
+  }
+  recorder->Record(buffer);
+}
+
+void AppStreamRecorderRunner::operator()(const RecordingStart&) {
+  StartRecording();
+}
+
+void AppStreamRecorderRunner::operator()(const RecordingStop&) {
+  StopRecording();
+}
+
+void AppStreamRecorderRunner::operator()(const RecordingAppend& recordBuffer) {
+  Record(recordBuffer.buffer);
 }
 
 }  // namespace application

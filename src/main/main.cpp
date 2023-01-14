@@ -20,6 +20,9 @@ int main(int argc, char* argv[]) {
   common::EventQueueFactory eventQueueFactory;
   auto recorderEventQueue = eventQueueFactory.Create<application::RecordingEvent>();
 
+  application::RecorderOptions recorderOptions;
+  recorderOptions.maxRecordingTimeInSeconds = 10 * 60;
+
   video::StreamOptions streamOptions;
   streamOptions.format = video::StreamFormat::MJPEG;
   streamOptions.width = 1280;
@@ -54,8 +57,8 @@ int main(int argc, char* argv[]) {
   writerOptions.framerate = encoderOptions.framerate;
   writerOptions.bitrate = encoderOptions.bitrate;
 
-  application::AppStreamRecorderRunner recorderRunner{decoderOptions, filterOptions, encoderOptions, writerOptions,
-                                                      *recorderEventQueue};
+  application::AppStreamRecorderRunner recorderRunner{*recorderEventQueue, recorderOptions, decoderOptions,
+                                                      filterOptions,       encoderOptions,  writerOptions};
   recorderRunner.Run();
 
   application::AppStreamDistributer streamDistributer;
