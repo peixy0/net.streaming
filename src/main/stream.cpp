@@ -234,9 +234,9 @@ AppStreamCapturerRunner::AppStreamCapturerRunner(
 }
 
 void AppStreamCapturerRunner::Run() {
-  streamThread = std::thread([this, streamOptions = std::move(streamOptions)]() mutable {
+  streamThread = std::thread([this] {
     auto device = video::Device("/dev/video0");
-    auto stream = device.GetStream(std::move(streamOptions));
+    auto stream = device.GetStream(streamOptions);
     while (true) {
       stream.ProcessFrame(*this);
     }

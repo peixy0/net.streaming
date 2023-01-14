@@ -70,7 +70,8 @@ int main(int argc, char* argv[]) {
   application::AppStreamCapturerRunner capturerRunner{streamOptions, streamProcessorEventQueue};
   capturerRunner.Run();
 
-  application::AppLayer app{mjpegDistributer, h264Distributer, snapshotSaver, streamProcessorEventQueue};
+  application::AppLayer app{
+      mjpegDistributer, h264Distributer, snapshotSaver, streamProcessorOptions, streamProcessorEventQueue};
   network::HttpOptions httpOptions;
   httpOptions.maxPayloadSize = 1 << 20;
   network::HttpLayerFactory factory{httpOptions, app};

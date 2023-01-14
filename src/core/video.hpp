@@ -42,13 +42,13 @@ struct StreamOptions {
 
 class Stream {
 public:
-  Stream(int fd, StreamOptions&&);
+  Stream(int fd, const StreamOptions&);
   Stream(const Stream&) = delete;
   ~Stream();
   void ProcessFrame(StreamProcessor&) const;
 
 private:
-  void SetParameters(StreamOptions&&) const;
+  void SetParameters(const StreamOptions&) const;
   void BindBuffers();
   void StartStreaming();
   void StopStreaming() const;
@@ -63,7 +63,7 @@ public:
   explicit Device(std::string_view deviceName);
   Device(const Device&) = delete;
   ~Device();
-  Stream GetStream(StreamOptions&&) const;
+  Stream GetStream(const StreamOptions&) const;
 
 private:
   int fd;

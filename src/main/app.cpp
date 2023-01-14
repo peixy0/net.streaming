@@ -1,14 +1,15 @@
 #include "app.hpp"
 #include <spdlog/spdlog.h>
-#include "stream.hpp"
 
 namespace application {
 
 AppLayer::AppLayer(AppStreamDistributer& streamDistributer, AppStreamDistributer& h264Distributer,
-    AppStreamSnapshotSaver& snapshotSaver, common::EventQueue<StreamProcessorEvent>& processorEventQueue)
+    AppStreamSnapshotSaver& snapshotSaver, const AppStreamProcessorOptions& streamProcessorOptions,
+    common::EventQueue<StreamProcessorEvent>& processorEventQueue)
     : mjpegDistributer{streamDistributer},
       h264Distributer{h264Distributer},
       snapshotSaver{snapshotSaver},
+      streamProcessorOptions{streamProcessorOptions},
       streamProcessorEventQueue{processorEventQueue} {
 }
 
@@ -28,24 +29,24 @@ network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
     resp.body = std::move(payload);
     return resp;
   }
-  if (req.uri == "/mjpeg") {
+  if (streamProcessorOptions.distributeMjpeg and req.uri == "/mjpeg") {
     return network::RawStreamHttpResponse{std::make_unique<AppMjpegStreamFactory>(mjpegDistributer)};
   }
-  if (req.uri == "/h264") {
+  if (streamProcessorOptions.distributeH264 and req.uri == "/h264") {
     return network::RawStreamHttpResponse{std::make_unique<AppH264StreamFactory>(h264Distributer)};
   }
   if (req.uri == "/recording") {
-    return BuildPlainTextRequest(network::HttpStatus::OK, isRecording ? "yes" : "no");
+    return BuildPlainTextRequest(network::HttpStatus::OK, streamProcessorOptions.saveRecord ? "yes" : "no");
   }
   if (req.uri == "/control") {
     const auto recordingControl = req.query.find("recording");
     if (recordingControl != req.query.cend()) {
       if (recordingControl->second == "on") {
-        isRecording = true;
+        streamProcessorOptions.saveRecord = true;
         streamProcessorEventQueue.Push(RecordingStart{});
       }
       if (recordingControl->second == "off") {
-        isRecording = false;
+        streamProcessorOptions.saveRecord = false;
         streamProcessorEventQueue.Push(RecordingStop{});
       }
     }

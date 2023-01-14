@@ -7,8 +7,8 @@ namespace application {
 
 class AppLayer : public network::HttpProcessor {
 public:
-  AppLayer(
-      AppStreamDistributer&, AppStreamDistributer&, AppStreamSnapshotSaver&, common::EventQueue<StreamProcessorEvent>&);
+  AppLayer(AppStreamDistributer&, AppStreamDistributer&, AppStreamSnapshotSaver&, const AppStreamProcessorOptions&,
+      common::EventQueue<StreamProcessorEvent>&);
   ~AppLayer() = default;
   network::HttpResponse Process(const network::HttpRequest&) override;
 
@@ -18,8 +18,9 @@ private:
   AppStreamDistributer& mjpegDistributer;
   AppStreamDistributer& h264Distributer;
   AppStreamSnapshotSaver& snapshotSaver;
+
+  AppStreamProcessorOptions streamProcessorOptions;
   common::EventQueue<StreamProcessorEvent>& streamProcessorEventQueue;
-  bool isRecording{false};
 };
 
 }  // namespace application
