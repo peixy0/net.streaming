@@ -13,7 +13,7 @@ namespace codec {
 
 void DisableCodecLogs();
 
-enum class PixelFormat { YUVJ422, YUV422, YUV420 };
+enum class PixelFormat { YUVJ422, YUV422, YUV420, NV12 };
 
 class DecodedDataProcessor {
 public:

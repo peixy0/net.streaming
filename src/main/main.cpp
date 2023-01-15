@@ -31,20 +31,20 @@ int main(int argc, char* argv[]) {
   streamOptions.framerate = 30;
 
   codec::DecoderOptions decoderOptions;
-  decoderOptions.codec = "mjpeg";
+  decoderOptions.codec = "mjpeg_qsv";
 
   codec::FilterOptions filterOptions;
   filterOptions.width = streamOptions.width;
   filterOptions.height = streamOptions.height;
   filterOptions.framerate = streamOptions.framerate;
   filterOptions.inFormat = codec::PixelFormat::YUVJ422;
-  filterOptions.outFormat = codec::PixelFormat::YUV420;
+  filterOptions.outFormat = codec::PixelFormat::NV12;
   filterOptions.description =
       "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
       ":text='%{localtime}':fontcolor=yellow:x=10:y=10";
 
   codec::EncoderOptions encoderOptions;
-  encoderOptions.codec = "libx264";
+  encoderOptions.codec = "hevc_qsv";
   encoderOptions.width = filterOptions.width;
   encoderOptions.height = filterOptions.height;
   encoderOptions.framerate = filterOptions.framerate;

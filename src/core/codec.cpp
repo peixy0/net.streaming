@@ -18,6 +18,8 @@ AVPixelFormat convert(codec::PixelFormat fmt) {
       return AV_PIX_FMT_YUV422P;
     case codec::PixelFormat::YUV420:
       return AV_PIX_FMT_YUV420P;
+    case codec::PixelFormat::NV12:
+      return AV_PIX_FMT_NV12;
   }
   return AV_PIX_FMT_YUV420P;
 }

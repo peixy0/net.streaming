@@ -3,10 +3,13 @@
 Simple IPCam written in modern C++
 
 # note
-To use on Raspberry Pi or other devices with hardware codec support. Edit src/main/main.cpp
+To use on Raspberry Pi or other devices with various hardware codec support.
+Edit options in src/main/main.cpp.
+
+Example:
 
 ```
--  encoderOptions.codec = "libx264";
+-  encoderOptions.codec = "hevc_qsv";
 +  encoderOptions.codec = "h264_v4l2m2m";
 ```
 
