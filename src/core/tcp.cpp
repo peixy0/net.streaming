@@ -157,7 +157,6 @@ void ConcreteTcpSender::Close() {
 }
 
 void ConcreteTcpSender::MarkPending() {
-  std::lock_guard lock{pendingMut};
   if (pending) {
     return;
   }
@@ -166,7 +165,6 @@ void ConcreteTcpSender::MarkPending() {
 }
 
 void ConcreteTcpSender::UnmarkPending() {
-  std::lock_guard lock{pendingMut};
   if (not pending) {
     return;
   }

@@ -5,13 +5,11 @@
 namespace application {
 
 AppStreamProcessorRunner::AppStreamProcessorRunner(common::EventQueue<StreamProcessorEvent>& eventQueue,
-    application::AppStreamDistributer& mjpegDistributer, application::AppStreamDistributer& streamDistributer,
-    const AppStreamProcessorOptions& processorOptions, const codec::DecoderOptions& decoderOptions,
-    const codec::FilterOptions& filterOptions, const codec::EncoderOptions& encoderOptions,
-    const codec::WriterOptions& writerOptions)
+    application::AppStreamDistributer& mjpegDistributer, const AppStreamProcessorOptions& processorOptions,
+    const codec::DecoderOptions& decoderOptions, const codec::FilterOptions& filterOptions,
+    const codec::EncoderOptions& encoderOptions, const codec::WriterOptions& writerOptions)
     : eventQueue{eventQueue},
       mjpegDistributer{mjpegDistributer},
-      h264Distributer{streamDistributer},
       processorOptions{processorOptions},
       decoderOptions{decoderOptions},
       filterOptions{filterOptions},
@@ -33,40 +31,43 @@ void AppStreamProcessorRunner::Process(std::string_view buffer) {
   if (processorOptions.distributeMjpeg) {
     mjpegDistributer.Process(buffer);
   }
-  if (processorOptions.saveRecord and processorOptions.maxRecordingTimeInSeconds > 0) {
-    const auto now = std::time(nullptr);
-    const auto diff = std::difftime(now, recorderStartTime);
-    if (diff >= processorOptions.maxRecordingTimeInSeconds) {
-      Reset();
+  if (processorOptions.saveRecord) {
+    if (processorOptions.maxRecordingTimeInSeconds > 0) {
+      const auto now = std::time(nullptr);
+      const auto diff = std::difftime(now, recorderStartTime);
+      if (diff >= processorOptions.maxRecordingTimeInSeconds) {
+        Reset();
+      }
     }
-  }
-  if (processorOptions.distributeH264 or processorOptions.saveRecord) {
     transcoder->Process(buffer, *this);
   }
 }
 
 void AppStreamProcessorRunner::ProcessEncodedData(AVPacket* encoded) {
-  if (processorOptions.distributeH264) {
-    const char* p = reinterpret_cast<const char*>(encoded->data);
-    h264Distributer.Process({p, p + encoded->size});
-  }
   if (processorOptions.saveRecord) {
     writer->Process(encoded);
   }
 }
 
 void AppStreamProcessorRunner::Reset() {
-  transcoder.reset();
+  ResetWriter();
   encoder.reset();
   filter.reset();
   decoder.reset();
-  writer.reset();
-  if (processorOptions.distributeH264 or processorOptions.saveRecord) {
+  transcoder.reset();
+  if (processorOptions.saveRecord) {
     decoder = std::make_unique<codec::Decoder>(decoderOptions);
     filter = std::make_unique<codec::Filter>(filterOptions);
     encoder = std::make_unique<codec::Encoder>(encoderOptions);
     transcoder = std::make_unique<codec::Transcoder>(*decoder, *filter, *encoder);
   }
+}
+
+void AppStreamProcessorRunner::ResetWriter() {
+  if (transcoder) {
+    transcoder->Flush(*this);
+  }
+  writer.reset();
   if (processorOptions.saveRecord) {
     recorderStartTime = std::time(nullptr);
     char buf[50];
@@ -76,8 +77,10 @@ void AppStreamProcessorRunner::Reset() {
 }
 
 void AppStreamProcessorRunner::operator()(const RecordingStart&) {
-  processorOptions.saveRecord = true;
-  Reset();
+  if (not processorOptions.saveRecord) {
+    processorOptions.saveRecord = true;
+    Reset();
+  }
 }
 
 void AppStreamProcessorRunner::operator()(const RecordingStop&) {
@@ -114,7 +117,7 @@ AppStream::AppStream(AppStreamDistributer& distributer, network::SenderNotifier&
 std::optional<std::string> AppStream::GetBuffered() {
   std::string result;
   {
-    std::lock_guard lock{bufferMut};
+    std::lock_guard lock{streamMut};
     while (not streamBuffer.empty()) {
       result += streamBuffer.front();
       streamBuffer.pop_front();
@@ -150,40 +153,9 @@ void AppMjpegStream::Notify(std::string_view buffer) {
   buf += buffer;
   buf += "\r\n\r\n";
   {
-    std::lock_guard lock{bufferMut};
+    std::lock_guard lock{streamMut};
     if (streamBuffer.size() < maxBufferSize) {
       streamBuffer.emplace_back(std::move(buf));
-    }
-    notifier.MarkPending();
-  }
-}
-
-AppH264Stream::AppH264Stream(AppStreamDistributer& distributer, network::SenderNotifier& notifier)
-    : AppStream{distributer, notifier} {
-  distributer.AddSubscriber(this);
-  spdlog::info("H264 stream added");
-  streamBuffer.emplace_back(
-      "HTTP/1.1 200 OK\r\n"
-      "Content-Type: video/H264\r\n"
-      "Transfer-Encoding: chunked\r\n\r\n");
-}
-
-AppH264Stream::~AppH264Stream() {
-  distributer.RemoveSubscriber(this);
-  spdlog::info("H264 stream removed");
-}
-
-void AppH264Stream::Notify(std::string_view frame) {
-  static constexpr int maxBufferSize = 30;
-  std::stringstream ss;
-  ss << std::hex << frame.size();
-  ss << "\r\n";
-  ss << frame;
-  ss << "\r\n";
-  {
-    std::lock_guard lock{bufferMut};
-    if (streamBuffer.size() < maxBufferSize) {
-      streamBuffer.emplace_back(ss.str());
     }
     notifier.MarkPending();
   }
@@ -194,13 +166,6 @@ AppMjpegStreamFactory::AppMjpegStreamFactory(AppStreamDistributer& distributer) 
 
 std::unique_ptr<network::RawStream> AppMjpegStreamFactory::GetStream(network::SenderNotifier& notifier) {
   return std::make_unique<AppMjpegStream>(distributer, notifier);
-}
-
-AppH264StreamFactory::AppH264StreamFactory(AppStreamDistributer& distributer) : distributer{distributer} {
-}
-
-std::unique_ptr<network::RawStream> AppH264StreamFactory::GetStream(network::SenderNotifier& notifier) {
-  return std::make_unique<AppH264Stream>(distributer, notifier);
 }
 
 void AppStreamDistributer::Process(std::string_view buffer) {

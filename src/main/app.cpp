@@ -3,11 +3,10 @@
 
 namespace application {
 
-AppLayer::AppLayer(AppStreamDistributer& streamDistributer, AppStreamDistributer& h264Distributer,
-    AppStreamSnapshotSaver& snapshotSaver, const AppStreamProcessorOptions& streamProcessorOptions,
+AppLayer::AppLayer(AppStreamDistributer& mjpegDistributer, AppStreamSnapshotSaver& snapshotSaver,
+    const AppStreamProcessorOptions& streamProcessorOptions,
     common::EventQueue<StreamProcessorEvent>& processorEventQueue)
-    : mjpegStreamFactory{streamDistributer},
-      h264StreamFactory{h264Distributer},
+    : mjpegStreamFactory{mjpegDistributer},
       snapshotSaver{snapshotSaver},
       streamProcessorOptions{streamProcessorOptions},
       streamProcessorEventQueue{processorEventQueue} {
@@ -31,9 +30,6 @@ network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
   }
   if (streamProcessorOptions.distributeMjpeg and req.uri == "/mjpeg") {
     return network::RawStreamHttpResponse{mjpegStreamFactory};
-  }
-  if (streamProcessorOptions.distributeH264 and req.uri == "/h264") {
-    return network::RawStreamHttpResponse{h264StreamFactory};
   }
   if (req.uri == "/recording") {
     return BuildPlainTextRequest(network::HttpStatus::OK, streamProcessorOptions.saveRecord ? "yes" : "no");

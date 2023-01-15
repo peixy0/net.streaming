@@ -76,7 +76,6 @@ private:
   TcpSenderSupervisor& supervisor;
   std::deque<std::unique_ptr<TcpSendOp>> buffered;
   bool pending{false};
-  std::mutex pendingMut;
 };
 
 class TcpConnectionContext {

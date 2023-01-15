@@ -14,7 +14,6 @@ class AppStreamDistributer;
 
 struct AppStreamProcessorOptions {
   bool distributeMjpeg;
-  bool distributeH264;
   bool saveRecord;
   int maxRecordingTimeInSeconds;
 };
@@ -29,8 +28,8 @@ using StreamProcessorEvent = std::variant<RecordingStart, RecordingStop, Process
 class AppStreamProcessorRunner : public codec::EncodedDataProcessor {
 public:
   AppStreamProcessorRunner(common::EventQueue<StreamProcessorEvent>&, application::AppStreamDistributer&,
-      application::AppStreamDistributer&, const AppStreamProcessorOptions&, const codec::DecoderOptions&,
-      const codec::FilterOptions&, const codec::EncoderOptions&, const codec::WriterOptions&);
+      const AppStreamProcessorOptions&, const codec::DecoderOptions&, const codec::FilterOptions&,
+      const codec::EncoderOptions&, const codec::WriterOptions&);
   void Run();
   void Process(std::string_view);
   void ProcessEncodedData(AVPacket*) override;
@@ -40,11 +39,11 @@ public:
 
 private:
   void Reset();
+  void ResetWriter();
 
   std::thread processorThread;
   common::EventQueue<StreamProcessorEvent>& eventQueue;
   application::AppStreamDistributer& mjpegDistributer;
-  application::AppStreamDistributer& h264Distributer;
 
   AppStreamProcessorOptions processorOptions;
   const codec::DecoderOptions decoderOptions;
@@ -90,7 +89,7 @@ protected:
   network::SenderNotifier& notifier;
 
   std::deque<std::string> streamBuffer;
-  std::mutex bufferMut;
+  std::mutex streamMut;
 };
 
 class AppMjpegStream : public AppStream {
@@ -103,25 +102,9 @@ private:
   int skipped{0};
 };
 
-class AppH264Stream : public AppStream {
-public:
-  AppH264Stream(AppStreamDistributer&, network::SenderNotifier&);
-  ~AppH264Stream() override;
-  void Notify(std::string_view) override;
-};
-
 class AppMjpegStreamFactory : public network::RawStreamFactory {
 public:
   explicit AppMjpegStreamFactory(AppStreamDistributer&);
-  std::unique_ptr<network::RawStream> GetStream(network::SenderNotifier&) override;
-
-private:
-  AppStreamDistributer& distributer;
-};
-
-class AppH264StreamFactory : public network::RawStreamFactory {
-public:
-  explicit AppH264StreamFactory(AppStreamDistributer&);
   std::unique_ptr<network::RawStream> GetStream(network::SenderNotifier&) override;
 
 private:

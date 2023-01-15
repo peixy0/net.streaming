@@ -22,7 +22,6 @@ int main(int argc, char* argv[]) {
   application::AppStreamProcessorOptions streamProcessorOptions;
   streamProcessorOptions.maxRecordingTimeInSeconds = 10 * 60;
   streamProcessorOptions.distributeMjpeg = true;
-  streamProcessorOptions.distributeH264 = false;
   streamProcessorOptions.saveRecord = false;
 
   video::StreamOptions streamOptions;
@@ -60,18 +59,16 @@ int main(int argc, char* argv[]) {
   writerOptions.bitrate = encoderOptions.bitrate;
 
   application::AppStreamDistributer mjpegDistributer;
-  application::AppStreamDistributer h264Distributer;
   application::AppStreamSnapshotSaver snapshotSaver{mjpegDistributer};
 
-  application::AppStreamProcessorRunner processorRunner{streamProcessorEventQueue, mjpegDistributer, h264Distributer,
+  application::AppStreamProcessorRunner processorRunner{streamProcessorEventQueue, mjpegDistributer,
       streamProcessorOptions, decoderOptions, filterOptions, encoderOptions, writerOptions};
   processorRunner.Run();
 
   application::AppStreamCapturerRunner capturerRunner{streamOptions, streamProcessorEventQueue};
   capturerRunner.Run();
 
-  application::AppLayer app{
-      mjpegDistributer, h264Distributer, snapshotSaver, streamProcessorOptions, streamProcessorEventQueue};
+  application::AppLayer app{mjpegDistributer, snapshotSaver, streamProcessorOptions, streamProcessorEventQueue};
   network::HttpOptions httpOptions;
   httpOptions.maxPayloadSize = 1 << 20;
   network::HttpLayerFactory factory{httpOptions, app};
