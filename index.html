@@ -56,21 +56,31 @@
   </head>
   <body>
     <div class="stream">
-      <img src="/stream">
+      <img id="stream" src="/mjpeg">
     </div>
     <div class="control">
       <button id="startRecording">⬤ Start Recording</button>
       <button id="stopRecording">⬤ Stop Recording</button>
+      <button id="lowFramerate">15 FPS</button>
+      <button id="highFramerate">30 FPS</button>
     </div>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
+      let stream = document.querySelector('#stream');
+
       let startRecordingCtrl = document.querySelector('#startRecording');
       let stopRecordingCtrl = document.querySelector('#stopRecording');
       let recording = false;
 
+      let lowFramerateCtrl = document.querySelector('#lowFramerate');
+      let highFramerateCtrl = document.querySelector('#highFramerate');
+      let highFramerate = false;
+
       function resetControl() {
         startRecordingCtrl.hidden = recording;
         stopRecordingCtrl.hidden = !recording;
+        lowFramerateCtrl.hidden = highFramerate;
+        highFramerateCtrl.hidden = !highFramerate;
       }
       resetControl();
 
@@ -93,6 +103,16 @@
           recording = false;
           resetControl();
         });
+      });
+      lowFramerateCtrl.addEventListener('click', () => {
+        stream.src = '/mjpeg2';
+        highFramerate = true;
+        resetControl();
+      });
+      highFramerateCtrl.addEventListener('click', () => {
+        stream.src = '/mjpeg';
+        highFramerate = false;
+        resetControl();
       });
     });
     </script>

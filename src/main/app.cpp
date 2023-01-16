@@ -6,7 +6,8 @@ namespace application {
 AppLayer::AppLayer(AppStreamDistributer& mjpegDistributer, AppStreamSnapshotSaver& snapshotSaver,
     const AppStreamProcessorOptions& streamProcessorOptions,
     common::EventQueue<StreamProcessorEvent>& processorEventQueue)
-    : mjpegStreamFactory{mjpegDistributer},
+    : mjpegLowFramerateStreamFactory{mjpegDistributer},
+      mjpegHighFramerateStreamFactory{mjpegDistributer},
       snapshotSaver{snapshotSaver},
       streamProcessorOptions{streamProcessorOptions},
       streamProcessorEventQueue{processorEventQueue} {
@@ -29,7 +30,10 @@ network::HttpResponse AppLayer::Process(const network::HttpRequest& req) {
     return resp;
   }
   if (streamProcessorOptions.distributeMjpeg and req.uri == "/mjpeg") {
-    return network::RawStreamHttpResponse{mjpegStreamFactory};
+    return network::RawStreamHttpResponse{mjpegLowFramerateStreamFactory};
+  }
+  if (streamProcessorOptions.distributeMjpeg and req.uri == "/mjpeg2") {
+    return network::RawStreamHttpResponse{mjpegHighFramerateStreamFactory};
   }
   if (req.uri == "/recording") {
     return BuildPlainTextRequest(network::HttpStatus::OK, streamProcessorOptions.saveRecord ? "yes" : "no");
