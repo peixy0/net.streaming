@@ -88,7 +88,8 @@ void HttpLayer::Process(std::string_view payload) {
   parser->Append(payload);
   size_t receivedPayloadSize = parser->GetLength();
   if (receivedPayloadSize > options.maxPayloadSize) {
-    spdlog::error("http received payload exceeds limit");
+    spdlog::error(
+        "http receivedPayloadSize({}) > options.maxPayloadSize({})", receivedPayloadSize, options.maxPayloadSize);
     sender->Close();
     return;
   }
