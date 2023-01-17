@@ -17,10 +17,9 @@ int main(int argc, char* argv[]) {
   spdlog::set_level(spdlog::level::info);
   codec::DisableCodecLogs();
 
-  application::AppStreamProcessorOptions streamProcessorOptions;
-  streamProcessorOptions.maxRecordingTimeInSeconds = 10 * 60;
-  streamProcessorOptions.distributeMjpeg = true;
-  streamProcessorOptions.saveRecord = false;
+  application::AppStreamRecorderOptions streamRecorderOptions;
+  streamRecorderOptions.maxRecordingTimeInSeconds = 10 * 60;
+  streamRecorderOptions.saveRecord = false;
 
   video::StreamOptions streamOptions;
   streamOptions.format = video::StreamFormat::MJPEG;
@@ -56,20 +55,20 @@ int main(int argc, char* argv[]) {
   writerOptions.framerate = encoderOptions.framerate;
   writerOptions.bitrate = encoderOptions.bitrate;
 
-  common::ConcreteEventQueue<application::StreamProcessorEvent> streamProcessorEventQueue;
+  common::ConcreteEventQueue<application::AppRecorderEvent> streamProcessorEventQueue;
 
   application::AppStreamDistributer mjpegDistributer;
   application::AppStreamSnapshotSaver snapshotSaver{mjpegDistributer};
+  application::AppStreamRecorderController streamRecorderController{mjpegDistributer, streamProcessorEventQueue};
 
-  application::AppStreamProcessorRunner processorRunner{streamProcessorEventQueue, mjpegDistributer,
-      streamProcessorOptions, decoderOptions, filterOptions, encoderOptions, writerOptions};
-  processorRunner.Run();
+  application::AppStreamRecorderRunner recorderRunner{
+      streamProcessorEventQueue, streamRecorderOptions, decoderOptions, filterOptions, encoderOptions, writerOptions};
+  recorderRunner.Run();
 
-  application::AppStreamCapturerRunner capturerRunner{streamOptions, streamProcessorEventQueue};
+  application::AppStreamCapturerRunner capturerRunner{streamOptions, mjpegDistributer};
   capturerRunner.Run();
 
-  application::AppStreamProcessorController streamProcessorController{streamProcessorEventQueue};
-  application::AppLayerFactory appFactory{mjpegDistributer, snapshotSaver, streamProcessorController};
+  application::AppLayerFactory appFactory{mjpegDistributer, snapshotSaver, streamRecorderController};
 
   network::HttpOptions httpOptions;
   httpOptions.maxPayloadSize = 1 << 20;

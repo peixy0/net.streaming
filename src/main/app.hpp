@@ -29,21 +29,38 @@ private:
   network::HttpSender& sender;
 };
 
-class AppStreamProcessorController {
+class AppStreamSnapshotSaver : public AppStreamReceiver {
 public:
-  explicit AppStreamProcessorController(common::EventQueue<StreamProcessorEvent>&);
-  void SetRecording(bool);
+  explicit AppStreamSnapshotSaver(AppStreamDistributer&);
+  ~AppStreamSnapshotSaver() override;
+  void Notify(std::string_view) override;
+  std::string GetSnapshot() const;
+
+private:
+  AppStreamDistributer& distributer;
+  std::string snapshot;
+  mutable std::mutex snapshotMut;
+};
+
+class AppStreamRecorderController : public AppStreamReceiver {
+public:
+  explicit AppStreamRecorderController(AppStreamDistributer&, common::EventQueue<AppRecorderEvent>&);
+  ~AppStreamRecorderController() override;
+  void Notify(std::string_view) override;
+  void Start();
+  void Stop();
   bool IsRecording() const;
 
 private:
+  AppStreamDistributer& streamDistributer;
+  common::EventQueue<AppRecorderEvent>& eventQueue;
   bool isRecording{false};
-  common::EventQueue<StreamProcessorEvent>& eventQueue;
   mutable std::mutex confMut;
 };
 
 class AppLayer : public network::HttpProcessor {
 public:
-  AppLayer(network::HttpSender&, AppStreamDistributer&, AppStreamSnapshotSaver&, AppStreamProcessorController&);
+  AppLayer(network::HttpSender&, AppStreamDistributer&, AppStreamSnapshotSaver&, AppStreamRecorderController&);
   AppLayer(const AppLayer&) = delete;
   AppLayer(AppLayer&&) = delete;
   AppLayer& operator=(const AppLayer&) = delete;
@@ -58,19 +75,19 @@ private:
   network::HttpSender& sender;
   AppStreamDistributer& mjpegDistributer;
   AppStreamSnapshotSaver& snapshotSaver;
-  AppStreamProcessorController& processorController;
+  AppStreamRecorderController& processorController;
   std::unique_ptr<AppStreamReceiver> streamReceiver;
 };
 
 class AppLayerFactory : public network::HttpProcessorFactory {
 public:
-  AppLayerFactory(AppStreamDistributer&, AppStreamSnapshotSaver&, AppStreamProcessorController&);
+  AppLayerFactory(AppStreamDistributer&, AppStreamSnapshotSaver&, AppStreamRecorderController&);
   std::unique_ptr<network::HttpProcessor> Create(network::HttpSender&) const override;
 
 private:
   AppStreamDistributer& mjpegDistributer;
   AppStreamSnapshotSaver& snapshotSaver;
-  AppStreamProcessorController& processorController;
+  AppStreamRecorderController& processorController;
 };
 
 }  // namespace application

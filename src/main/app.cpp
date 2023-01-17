@@ -43,27 +43,61 @@ void AppHighFrameRateMjpegSender::Notify(std::string_view buffer) {
   return sender.Send(std::move(resp));
 }
 
-AppStreamProcessorController::AppStreamProcessorController(common::EventQueue<StreamProcessorEvent>& eventQueue)
-    : eventQueue{eventQueue} {
+AppStreamSnapshotSaver::AppStreamSnapshotSaver(AppStreamDistributer& distributer) : distributer{distributer} {
+  distributer.AddSubscriber(this);
 }
 
-void AppStreamProcessorController::SetRecording(bool value) {
+AppStreamSnapshotSaver::~AppStreamSnapshotSaver() {
+  distributer.RemoveSubscriber(this);
+}
+
+void AppStreamSnapshotSaver::Notify(std::string_view buffer) {
+  std::lock_guard lock{snapshotMut};
+  snapshot = buffer;
+}
+
+std::string AppStreamSnapshotSaver::GetSnapshot() const {
+  std::lock_guard lock{snapshotMut};
+  return snapshot;
+}
+
+AppStreamRecorderController::AppStreamRecorderController(
+    AppStreamDistributer& streamDistributer, common::EventQueue<AppRecorderEvent>& eventQueue)
+    : streamDistributer{streamDistributer}, eventQueue{eventQueue} {
+  streamDistributer.AddSubscriber(this);
+}
+
+AppStreamRecorderController::~AppStreamRecorderController() {
+  streamDistributer.RemoveSubscriber(this);
+}
+
+void AppStreamRecorderController::Notify(std::string_view buffer) {
   std::lock_guard lock{confMut};
-  isRecording = value;
-  if (isRecording) {
-    eventQueue.Push(RecordingStart{});
-  } else {
-    eventQueue.Push(RecordingStop{});
+  if (not isRecording) {
+    return;
   }
+  eventQueue.Push(RecordData{std::string{buffer}});
 }
 
-bool AppStreamProcessorController::IsRecording() const {
+void AppStreamRecorderController::Start() {
+  std::lock_guard lock{confMut};
+  isRecording = true;
+  eventQueue.Push(StartRecording{});
+}
+
+void AppStreamRecorderController::Stop() {
+  std::lock_guard lock{confMut};
+  isRecording = false;
+  eventQueue.Push(StopRecording{});
+}
+
+bool AppStreamRecorderController::IsRecording() const {
   std::lock_guard lock{confMut};
   return isRecording;
 }
 
 AppLayer::AppLayer(network::HttpSender& sender, AppStreamDistributer& mjpegDistributer,
-    AppStreamSnapshotSaver& snapshotSaver, AppStreamProcessorController& processorController)
+    AppStreamSnapshotSaver& snapshotSaver, AppStreamRecorderController& processorController)
     : sender{sender},
       mjpegDistributer{mjpegDistributer},
       snapshotSaver{snapshotSaver},
@@ -105,10 +139,10 @@ void AppLayer::Process(network::HttpRequest&& req) {
     const auto recordingControl = req.query.find("recording");
     if (recordingControl != req.query.cend()) {
       if (recordingControl->second == "on") {
-        processorController.SetRecording(true);
+        processorController.Start();
       }
       if (recordingControl->second == "off") {
-        processorController.SetRecording(false);
+        processorController.Stop();
       }
     }
     return sender.Send(BuildPlainTextRequest(network::HttpStatus::OK, "OK"));
@@ -125,7 +159,7 @@ network::PreparedHttpResponse AppLayer::BuildPlainTextRequest(network::HttpStatu
 }
 
 AppLayerFactory::AppLayerFactory(AppStreamDistributer& mjpegDistributer, AppStreamSnapshotSaver& snapshotSaver,
-    AppStreamProcessorController& configuration)
+    AppStreamRecorderController& configuration)
     : mjpegDistributer{mjpegDistributer}, snapshotSaver{snapshotSaver}, processorController{configuration} {
 }
 

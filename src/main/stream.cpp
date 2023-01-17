@@ -1,16 +1,14 @@
 #include "stream.hpp"
 #include <spdlog/spdlog.h>
-#include <sstream>
 
 namespace application {
 
-AppStreamProcessorRunner::AppStreamProcessorRunner(common::EventQueue<StreamProcessorEvent>& eventQueue,
-    application::AppStreamDistributer& mjpegDistributer, const AppStreamProcessorOptions& processorOptions,
-    const codec::DecoderOptions& decoderOptions, const codec::FilterOptions& filterOptions,
-    const codec::EncoderOptions& encoderOptions, const codec::WriterOptions& writerOptions)
+AppStreamRecorderRunner::AppStreamRecorderRunner(common::EventQueue<AppRecorderEvent>& eventQueue,
+    const AppStreamRecorderOptions& recorderOptions, const codec::DecoderOptions& decoderOptions,
+    const codec::FilterOptions& filterOptions, const codec::EncoderOptions& encoderOptions,
+    const codec::WriterOptions& writerOptions)
     : eventQueue{eventQueue},
-      mjpegDistributer{mjpegDistributer},
-      processorOptions{processorOptions},
+      recorderOptions{recorderOptions},
       decoderOptions{decoderOptions},
       filterOptions{filterOptions},
       encoderOptions{encoderOptions},
@@ -18,7 +16,7 @@ AppStreamProcessorRunner::AppStreamProcessorRunner(common::EventQueue<StreamProc
   Reset();
 }
 
-void AppStreamProcessorRunner::Run() {
+void AppStreamRecorderRunner::Run() {
   processorThread = std::thread([this] {
     while (true) {
       auto event = eventQueue.Pop();
@@ -27,35 +25,33 @@ void AppStreamProcessorRunner::Run() {
   });
 }
 
-void AppStreamProcessorRunner::Process(std::string_view buffer) {
-  if (processorOptions.distributeMjpeg) {
-    mjpegDistributer.Process(buffer);
+void AppStreamRecorderRunner::Process(std::string_view buffer) {
+  if (not recorderOptions.saveRecord) {
+    return;
   }
-  if (processorOptions.saveRecord) {
-    if (processorOptions.maxRecordingTimeInSeconds > 0) {
-      const auto now = std::time(nullptr);
-      const auto diff = std::difftime(now, recorderStartTime);
-      if (diff >= processorOptions.maxRecordingTimeInSeconds) {
-        Reset();
-      }
+  if (recorderOptions.maxRecordingTimeInSeconds > 0) {
+    const auto now = std::time(nullptr);
+    const auto diff = std::difftime(now, recorderStartTime);
+    if (diff >= recorderOptions.maxRecordingTimeInSeconds) {
+      Reset();
     }
-    transcoder->Process(buffer, *this);
   }
+  transcoder->Process(buffer, *this);
 }
 
-void AppStreamProcessorRunner::ProcessEncodedData(AVPacket* encoded) {
-  if (processorOptions.saveRecord) {
+void AppStreamRecorderRunner::ProcessEncodedData(AVPacket* encoded) {
+  if (recorderOptions.saveRecord) {
     writer->Process(encoded);
   }
 }
 
-void AppStreamProcessorRunner::Reset() {
+void AppStreamRecorderRunner::Reset() {
   ResetWriter();
   encoder.reset();
   filter.reset();
   decoder.reset();
   transcoder.reset();
-  if (processorOptions.saveRecord) {
+  if (recorderOptions.saveRecord) {
     decoder = std::make_unique<codec::Decoder>(decoderOptions);
     filter = std::make_unique<codec::Filter>(filterOptions);
     encoder = std::make_unique<codec::Encoder>(encoderOptions);
@@ -63,12 +59,12 @@ void AppStreamProcessorRunner::Reset() {
   }
 }
 
-void AppStreamProcessorRunner::ResetWriter() {
+void AppStreamRecorderRunner::ResetWriter() {
   if (transcoder) {
     transcoder->Flush(*this);
   }
   writer.reset();
-  if (processorOptions.saveRecord) {
+  if (recorderOptions.saveRecord) {
     recorderStartTime = std::time(nullptr);
     char buf[50];
     std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.mp4", std::localtime(&recorderStartTime));
@@ -76,38 +72,20 @@ void AppStreamProcessorRunner::ResetWriter() {
   }
 }
 
-void AppStreamProcessorRunner::operator()(const RecordingStart&) {
-  if (not processorOptions.saveRecord) {
-    processorOptions.saveRecord = true;
+void AppStreamRecorderRunner::operator()(const StartRecording&) {
+  if (not recorderOptions.saveRecord) {
+    recorderOptions.saveRecord = true;
     Reset();
   }
 }
 
-void AppStreamProcessorRunner::operator()(const RecordingStop&) {
-  processorOptions.saveRecord = false;
+void AppStreamRecorderRunner::operator()(const StopRecording&) {
+  recorderOptions.saveRecord = false;
   Reset();
 }
 
-void AppStreamProcessorRunner::operator()(const ProcessBuffer& recordBuffer) {
-  Process(recordBuffer.buffer);
-}
-
-AppStreamSnapshotSaver::AppStreamSnapshotSaver(AppStreamDistributer& distributer) : distributer{distributer} {
-  distributer.AddSubscriber(this);
-}
-
-AppStreamSnapshotSaver::~AppStreamSnapshotSaver() {
-  distributer.RemoveSubscriber(this);
-}
-
-void AppStreamSnapshotSaver::Notify(std::string_view buffer) {
-  std::lock_guard lock{snapshotMut};
-  snapshot = buffer;
-}
-
-std::string AppStreamSnapshotSaver::GetSnapshot() const {
-  std::lock_guard lock{snapshotMut};
-  return snapshot;
+void AppStreamRecorderRunner::operator()(const RecordData& data) {
+  Process(data.buffer);
 }
 
 void AppStreamDistributer::Process(std::string_view buffer) {
@@ -128,8 +106,8 @@ void AppStreamDistributer::RemoveSubscriber(AppStreamReceiver* subscriber) {
 }
 
 AppStreamCapturerRunner::AppStreamCapturerRunner(
-    const video::StreamOptions& streamOptions, common::EventQueue<StreamProcessorEvent>& processorEventQueue)
-    : streamOptions{streamOptions}, processorEventQueue{processorEventQueue} {
+    const video::StreamOptions& streamOptions, AppStreamDistributer& streamDistributer)
+    : streamOptions{streamOptions}, streamDistributer{streamDistributer} {
 }
 
 void AppStreamCapturerRunner::Run() {
@@ -143,7 +121,7 @@ void AppStreamCapturerRunner::Run() {
 }
 
 void AppStreamCapturerRunner::ProcessFrame(std::string_view frame) {
-  processorEventQueue.Push(ProcessBuffer{{frame.data(), frame.size()}});
+  streamDistributer.Process({frame.data(), frame.size()});
 }
 
 }  // namespace application
