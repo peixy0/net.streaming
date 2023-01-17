@@ -37,26 +37,9 @@ private:
   size_t size{0};
 };
 
-class TcpSendStream : public TcpSendOp {
-public:
-  TcpSendStream(int, TcpSender&, std::unique_ptr<RawStream>);
-  void Send() override;
-  bool Done() const override;
-
-private:
-  void FillBuffer();
-
-  int peer;
-  TcpSender& sender;
-  std::unique_ptr<RawStream> stream;
-  std::string buffer;
-  size_t size{0};
-  bool done{false};
-};
-
 class ConcreteTcpSender : public TcpSender {
 public:
-  ConcreteTcpSender(int, TcpSenderSupervisor&);
+  ConcreteTcpSender(int, size_t, TcpSenderSupervisor&);
   ConcreteTcpSender(const ConcreteTcpSender&) = delete;
   ConcreteTcpSender(ConcreteTcpSender&&) = delete;
   ConcreteTcpSender& operator=(const ConcreteTcpSender&) = delete;
@@ -65,40 +48,42 @@ public:
 
   void Send(std::string_view) override;
   void Send(os::File) override;
-  void Send(std::unique_ptr<RawStream>) override;
   void SendBuffered() override;
   void Close() override;
-  void MarkPending() override;
-  void UnmarkPending() override;
 
 private:
+  void MarkPending();
+  void UnmarkPending();
+
   int peer;
+  size_t maxBufferedSize;
   TcpSenderSupervisor& supervisor;
   std::deque<std::unique_ptr<TcpSendOp>> buffered;
   bool pending{false};
+  std::mutex senderMut;
 };
 
 class TcpConnectionContext {
 public:
-  TcpConnectionContext(int, std::unique_ptr<TcpReceiver>, std::unique_ptr<TcpSender>);
-  ~TcpConnectionContext();
+  TcpConnectionContext(int, std::unique_ptr<TcpProcessor>, std::unique_ptr<TcpSender>);
   TcpConnectionContext(const TcpConnectionContext&) = delete;
   TcpConnectionContext(TcpConnectionContext&&) = delete;
   TcpConnectionContext& operator=(const TcpConnectionContext&) = delete;
   TcpConnectionContext& operator=(TcpConnectionContext&&) = delete;
+  ~TcpConnectionContext();
 
-  TcpReceiver& GetReceiver();
+  TcpProcessor& GetReceiver();
   TcpSender& GetSender();
 
 private:
   int fd;
-  std::unique_ptr<TcpReceiver> receiver;
+  std::unique_ptr<TcpProcessor> receiver;
   std::unique_ptr<TcpSender> sender;
 };
 
 class TcpLayer : public TcpSenderSupervisor {
 public:
-  explicit TcpLayer(TcpReceiverFactory&);
+  explicit TcpLayer(const TcpOptions&, TcpProcessorFactory&);
   TcpLayer(const TcpLayer&) = delete;
   TcpLayer(TcpLayer&&) = delete;
   TcpLayer& operator=(const TcpLayer&) = delete;
@@ -123,15 +108,17 @@ private:
   void PurgeExpiredConnections();
   int FindMostRecentTimeout() const;
 
+  TcpOptions options;
+  TcpProcessorFactory& receiverFactory;
+
   int localDescriptor{-1};
   int epollDescriptor{-1};
   std::unordered_map<int, TcpConnectionContext> connections;
-  TcpReceiverFactory& receiverFactory;
 };
 
 class Tcp4Layer : public TcpLayer {
 public:
-  Tcp4Layer(std::string_view, std::uint16_t, TcpReceiverFactory&);
+  Tcp4Layer(std::string_view, std::uint16_t, const TcpOptions&, TcpProcessorFactory&);
 
 protected:
   int CreateSocket() override;

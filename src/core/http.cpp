@@ -22,10 +22,10 @@ std::string to_string(network::HttpStatus status) {
 
 namespace network {
 
-HttpResponseVisitor::HttpResponseVisitor(TcpSender& sender) : sender{sender} {
+ConcreteHttpSender::ConcreteHttpSender(TcpSender& sender) : sender{sender} {
 }
 
-void HttpResponseVisitor::operator()(PreparedHttpResponse&& response) const {
+void ConcreteHttpSender::Send(PreparedHttpResponse&& response) {
   std::string respPayload = "HTTP/1.1 " + to_string(response.status) + "\r\n";
   response.headers.emplace("Content-Length", std::to_string(response.body.length()));
   for (const auto& [k, v] : response.headers) {
@@ -36,7 +36,7 @@ void HttpResponseVisitor::operator()(PreparedHttpResponse&& response) const {
   sender.Send(std::move(respPayload));
 }
 
-void HttpResponseVisitor::operator()(FileHttpResponse&& response) const {
+void ConcreteHttpSender::Send(FileHttpResponse&& response) {
   os::File file{response.path};
   if (not file.Ok()) {
     spdlog::error("http open(\"{}\"): {}", response.path, strerror(errno));
@@ -44,7 +44,7 @@ void HttpResponseVisitor::operator()(FileHttpResponse&& response) const {
     resp.status = HttpStatus::NotFound;
     resp.headers.emplace("Content-Type", "text/plain");
     resp.body = "Not Found";
-    return operator()(std::move(resp));
+    return Send(std::move(resp));
   }
   std::string respPayload = "HTTP/1.1 " + to_string(HttpStatus::OK) + "\r\n";
   response.headers.emplace("Content-Length", std::to_string(file.Size()));
@@ -56,22 +56,40 @@ void HttpResponseVisitor::operator()(FileHttpResponse&& response) const {
   sender.Send(std::move(file));
 }
 
-void HttpResponseVisitor::operator()(RawStreamHttpResponse&& response) const {
-  auto stream = response.streamFactory.GetStream(sender);
-  sender.Send(std::move(stream));
+void ConcreteHttpSender::Send(MixedReplaceHeaderHttpResponse&&) {
+  std::string respPayload = "HTTP/1.1 " + to_string(HttpStatus::OK) +
+                            "\r\n"
+                            "Content-Type: multipart/x-mixed-replace; boundary=\"BND\"\r\n\r\n";
+  sender.Send(std::move(respPayload));
 }
 
-HttpLayer::HttpLayer(
-    const HttpOptions& options, std::unique_ptr<HttpParser> parser, HttpProcessor& processor, TcpSender& sender)
-    : options{options}, parser{std::move(parser)}, processor{processor}, sender{sender} {
+void ConcreteHttpSender::Send(MixedReplaceDataHttpResponse&& response) {
+  std::string respPayload = "--BND\r\n";
+  response.headers.emplace("Content-Length", std::to_string(response.body.size()));
+  for (const auto& [k, v] : response.headers) {
+    respPayload += k + ": " + v + "\r\n";
+  }
+  respPayload += "\r\n";
+  respPayload += std::move(response.body);
+  respPayload += "\r\n";
+  sender.Send(std::move(respPayload));
 }
 
-void HttpLayer::Receive(std::string_view payload) {
+void ConcreteHttpSender::Close() {
+  sender.Close();
+}
+
+HttpLayer::HttpLayer(const HttpOptions& options, std::unique_ptr<HttpParser> parser, std::unique_ptr<HttpSender> sender,
+    std::unique_ptr<HttpProcessor> processor)
+    : options{options}, parser{std::move(parser)}, sender{std::move(sender)}, processor{std::move(processor)} {
+}
+
+void HttpLayer::Process(std::string_view payload) {
   parser->Append(payload);
   size_t receivedPayloadSize = parser->GetLength();
   if (receivedPayloadSize > options.maxPayloadSize) {
     spdlog::error("http received payload exceeds limit");
-    sender.Close();
+    sender->Close();
     return;
   }
   spdlog::debug("http received payload: {}", payload);
@@ -79,17 +97,18 @@ void HttpLayer::Receive(std::string_view payload) {
   if (not request) {
     return;
   }
-  auto response = processor.Process(std::move(*request));
-  std::visit(HttpResponseVisitor{sender}, std::move(response));
+  processor->Process(std::move(*request));
 }
 
-HttpLayerFactory::HttpLayerFactory(const HttpOptions& options, HttpProcessor& processor)
-    : options{options}, processor{processor} {
+HttpLayerFactory::HttpLayerFactory(const HttpOptions& options, HttpProcessorFactory& processorFactory)
+    : options{options}, processorFactory{processorFactory} {
 }
 
-std::unique_ptr<network::TcpReceiver> HttpLayerFactory::Create(TcpSender& sender) const {
+std::unique_ptr<network::TcpProcessor> HttpLayerFactory::Create(TcpSender& tcpSender) const {
   auto parser = std::make_unique<ConcreteHttpParser>();
-  return std::make_unique<HttpLayer>(options, std::move(parser), processor, sender);
+  auto sender = std::make_unique<ConcreteHttpSender>(tcpSender);
+  auto processor = processorFactory.Create(*sender);
+  return std::make_unique<HttpLayer>(options, std::move(parser), std::move(sender), std::move(processor));
 }
 
 }  // namespace network

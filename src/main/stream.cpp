@@ -92,11 +92,6 @@ void AppStreamProcessorRunner::operator()(const ProcessBuffer& recordBuffer) {
   Process(recordBuffer.buffer);
 }
 
-void AppStreamSnapshotSaver::Notify(std::string_view buffer) {
-  std::lock_guard lock{snapshotMut};
-  snapshot = buffer;
-}
-
 AppStreamSnapshotSaver::AppStreamSnapshotSaver(AppStreamDistributer& distributer) : distributer{distributer} {
   distributer.AddSubscriber(this);
 }
@@ -105,106 +100,14 @@ AppStreamSnapshotSaver::~AppStreamSnapshotSaver() {
   distributer.RemoveSubscriber(this);
 }
 
+void AppStreamSnapshotSaver::Notify(std::string_view buffer) {
+  std::lock_guard lock{snapshotMut};
+  snapshot = buffer;
+}
+
 std::string AppStreamSnapshotSaver::GetSnapshot() const {
   std::lock_guard lock{snapshotMut};
   return snapshot;
-}
-
-AppStream::AppStream(AppStreamDistributer& distributer, network::SenderNotifier& notifier)
-    : distributer{distributer}, notifier{notifier} {
-  distributer.AddSubscriber(this);
-}
-
-AppStream::~AppStream() {
-  distributer.RemoveSubscriber(this);
-}
-
-std::optional<std::string> AppStream::GetBuffered() {
-  std::string result;
-  {
-    std::lock_guard lock{streamMut};
-    while (bufferSize != 0) {
-      result += streamBuffer.front();
-      streamBuffer.pop_front();
-      --bufferSize;
-    }
-    notifier.UnmarkPending();
-  }
-  return result;
-}
-
-void AppStream::AddToBuffer(std::string&& buf) {
-  static constexpr int maxBufferSize = 30;
-  std::lock_guard lock{streamMut};
-  streamBuffer.emplace_back(std::move(buf));
-  ++bufferSize;
-  while (bufferSize > maxBufferSize) {
-    streamBuffer.pop_front();
-    --bufferSize;
-  }
-  notifier.MarkPending();
-}
-
-AppMjpegLowFramerateStream::AppMjpegLowFramerateStream(
-    AppStreamDistributer& distributer, network::SenderNotifier& notifier)
-    : AppStream{distributer, notifier} {
-  spdlog::info("mjpeg stream added");
-  AddToBuffer(
-      "HTTP/1.1 200 OK\r\n"
-      "Content-Type: multipart/x-mixed-replace; boundary=FB\r\n\r\n");
-}
-
-AppMjpegLowFramerateStream::~AppMjpegLowFramerateStream() {
-  spdlog::info("mjpeg stream removed");
-}
-
-void AppMjpegLowFramerateStream::Notify(std::string_view buffer) {
-  static constexpr int skipBufferSize = 1;
-  if (skipped++ < skipBufferSize) {
-    return;
-  }
-  skipped = 0;
-
-  std::string buf = "--FB\r\nContent-Type: image/jpeg\r\n\r\n";
-  buf += buffer;
-  buf += "\r\n\r\n";
-  AddToBuffer(std::move(buf));
-}
-
-AppMjpegLowFramerateStreamFactory::AppMjpegLowFramerateStreamFactory(AppStreamDistributer& distributer)
-    : distributer{distributer} {
-}
-
-std::unique_ptr<network::RawStream> AppMjpegLowFramerateStreamFactory::GetStream(network::SenderNotifier& notifier) {
-  return std::make_unique<AppMjpegLowFramerateStream>(distributer, notifier);
-}
-
-AppMjpegHighFramerateStream::AppMjpegHighFramerateStream(
-    AppStreamDistributer& distributer, network::SenderNotifier& notifier)
-    : AppStream{distributer, notifier} {
-  spdlog::info("mjpeg stream added");
-  AddToBuffer(
-      "HTTP/1.1 200 OK\r\n"
-      "Content-Type: multipart/x-mixed-replace; boundary=FB\r\n\r\n");
-}
-
-AppMjpegHighFramerateStream::~AppMjpegHighFramerateStream() {
-  spdlog::info("mjpeg stream removed");
-}
-
-void AppMjpegHighFramerateStream::Notify(std::string_view buffer) {
-  std::string buf = "--FB\r\nContent-Type: image/jpeg\r\n\r\n";
-  buf += buffer;
-  buf += "\r\n\r\n";
-  AddToBuffer(std::move(buf));
-}
-
-AppMjpegHighFramerateStreamFactory::AppMjpegHighFramerateStreamFactory(AppStreamDistributer& distributer)
-    : distributer{distributer} {
-}
-
-std::unique_ptr<network::RawStream> AppMjpegHighFramerateStreamFactory::GetStream(network::SenderNotifier& notifier) {
-  return std::make_unique<AppMjpegHighFramerateStream>(distributer, notifier);
 }
 
 void AppStreamDistributer::Process(std::string_view buffer) {

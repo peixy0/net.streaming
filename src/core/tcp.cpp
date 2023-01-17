@@ -65,49 +65,8 @@ bool TcpSendFile::Done() const {
   return size == 0;
 }
 
-TcpSendStream::TcpSendStream(int peer, TcpSender& sender, std::unique_ptr<RawStream> stream)
-    : peer{peer}, sender{sender}, stream{std::move(stream)} {
-}
-
-void TcpSendStream::Send() {
-  if (size == 0) {
-    FillBuffer();
-  }
-  while (size > 0) {
-    int n = send(peer, buffer.c_str(), size, 0);
-    if (n == -1) {
-      if (errno == EAGAIN or errno == EWOULDBLOCK) {
-        return;
-      }
-      spdlog::error("tcp send(): {}", strerror(errno));
-      return;
-    }
-    if (n == 0) {
-      return;
-    }
-    size -= n;
-    buffer.erase(0, n);
-  }
-}
-
-bool TcpSendStream::Done() const {
-  return done;
-}
-
-void TcpSendStream::FillBuffer() {
-  auto buf = stream->GetBuffered();
-  if (not buf) {
-    done = true;
-    return;
-  }
-  buffer = std::move(*buf);
-  size = buffer.size();
-  if (size == 0) {
-    sender.UnmarkPending();
-  }
-}
-
-ConcreteTcpSender::ConcreteTcpSender(int s, TcpSenderSupervisor& supervisor) : peer{s}, supervisor{supervisor} {
+ConcreteTcpSender::ConcreteTcpSender(int s, size_t maxBufferedSize, TcpSenderSupervisor& supervisor)
+    : peer{s}, maxBufferedSize{maxBufferedSize}, supervisor{supervisor} {
   int flag = 0;
   int r = setsockopt(peer, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof flag);
   if (r < 0) {
@@ -120,6 +79,7 @@ ConcreteTcpSender::~ConcreteTcpSender() {
 }
 
 void ConcreteTcpSender::SendBuffered() {
+  std::lock_guard lock{senderMut};
   while (not buffered.empty()) {
     auto& op = buffered.front();
     op->Send();
@@ -132,24 +92,25 @@ void ConcreteTcpSender::SendBuffered() {
 }
 
 void ConcreteTcpSender::Send(std::string_view buf) {
+  std::lock_guard lock{senderMut};
+  if (buffered.size() > maxBufferedSize) {
+    return;
+  }
   buffered.emplace_back(std::make_unique<TcpSendBuffer>(peer, buf));
   MarkPending();
-  SendBuffered();
 }
 
 void ConcreteTcpSender::Send(os::File file) {
+  std::lock_guard lock{senderMut};
+  if (buffered.size() > maxBufferedSize) {
+    return;
+  }
   buffered.emplace_back(std::make_unique<TcpSendFile>(peer, std::move(file)));
   MarkPending();
-  SendBuffered();
-}
-
-void ConcreteTcpSender::Send(std::unique_ptr<RawStream> stream) {
-  buffered.emplace_back(std::make_unique<TcpSendStream>(peer, *this, std::move(stream)));
-  MarkPending();
-  SendBuffered();
 }
 
 void ConcreteTcpSender::Close() {
+  std::lock_guard lock{senderMut};
   if (peer != -1) {
     shutdown(peer, SHUT_RDWR);
     peer = -1;
@@ -173,7 +134,7 @@ void ConcreteTcpSender::UnmarkPending() {
 }
 
 TcpConnectionContext::TcpConnectionContext(
-    int fd, std::unique_ptr<TcpReceiver> receiver, std::unique_ptr<TcpSender> sender)
+    int fd, std::unique_ptr<TcpProcessor> receiver, std::unique_ptr<TcpSender> sender)
     : fd{fd}, receiver{std::move(receiver)}, sender{std::move(sender)} {
   spdlog::info("tcp connection established: {}", fd);
 }
@@ -182,7 +143,7 @@ TcpConnectionContext::~TcpConnectionContext() {
   spdlog::info("tcp connection closed: {}", fd);
 }
 
-TcpReceiver& TcpConnectionContext::GetReceiver() {
+TcpProcessor& TcpConnectionContext::GetReceiver() {
   return *receiver;
 }
 
@@ -190,7 +151,8 @@ TcpSender& TcpConnectionContext::GetSender() {
   return *sender;
 }
 
-TcpLayer::TcpLayer(TcpReceiverFactory& receiverFactory) : receiverFactory{receiverFactory} {
+TcpLayer::TcpLayer(const TcpOptions& options, TcpProcessorFactory& receiverFactory)
+    : options{options}, receiverFactory{receiverFactory} {
 }
 
 TcpLayer::~TcpLayer() {
@@ -300,7 +262,7 @@ void TcpLayer::SetupPeer() {
   SetNonBlocking(s);
   MarkReceiverPending(s);
 
-  auto sender = std::make_unique<ConcreteTcpSender>(s, *this);
+  auto sender = std::make_unique<ConcreteTcpSender>(s, options.maxBufferedSize, *this);
   auto receiver = receiverFactory.Create(*sender);
   connections.try_emplace(s, s, std::move(receiver), std::move(sender));
 }
@@ -333,7 +295,7 @@ void TcpLayer::ReadFromPeer(int peerDescriptor) {
   }
   auto& context = std::get<TcpConnectionContext>(*it);
   auto& receiver = context.GetReceiver();
-  receiver.Receive({buf, buf + r});
+  receiver.Process({buf, buf + r});
 }
 
 void TcpLayer::SendToPeer(int peerDescriptor) {
@@ -347,8 +309,9 @@ void TcpLayer::SendToPeer(int peerDescriptor) {
   context.GetSender().SendBuffered();
 }
 
-Tcp4Layer::Tcp4Layer(std::string_view host, std::uint16_t port, TcpReceiverFactory& receiverFactory)
-    : TcpLayer{receiverFactory}, host{host}, port{port} {
+Tcp4Layer::Tcp4Layer(
+    std::string_view host, std::uint16_t port, const TcpOptions& options, TcpProcessorFactory& receiverFactory)
+    : TcpLayer{options, receiverFactory}, host{host}, port{port} {
 }
 
 int Tcp4Layer::CreateSocket() {

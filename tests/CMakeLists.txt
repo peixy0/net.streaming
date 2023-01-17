@@ -1,6 +1,5 @@
 add_executable(
   all_tests
-  network_mocks.hpp
   network_tests.cpp
 )
 

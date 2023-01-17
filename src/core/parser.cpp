@@ -51,8 +51,8 @@ std::optional<HttpRequest> ConcreteHttpParser::Parse() {
     if (not headersEndingParsed) {
       return std::nullopt;
     }
+    bodyRemaining = FindContentLength(headers);
   }
-  bodyRemaining = FindContentLength(headers);
   if (payload.length() < bodyRemaining) {
     return std::nullopt;
   }

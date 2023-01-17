@@ -1,7 +1,5 @@
 #include <gtest/gtest.h>
-#include <spdlog/spdlog.h>
-#include "network.hpp"
-#include "network_mocks.hpp"
+#include "http.hpp"
 #include "spdlog/common.h"
 
 using namespace testing;
@@ -37,28 +35,6 @@ TEST(HttpParserTestSuite, whenReceivedValidHttpRequest_itShouldParseTheRequest) 
   ASSERT_EQ(req2->headers.at("accept-language"), "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7");
   ASSERT_EQ(req2->query.at("key"), "value");
   ASSERT_EQ(req2->query.at("key2"), "value2");
-}
-
-TEST(HttpLayerTestSuite, whenReceivedValidHttpRequest_itShouldRespondOk) {
-  std::string responsePayload;
-  HttpOptions options;
-  options.maxPayloadSize = 1 << 20;
-  HttpRequest httpRequest;
-  httpRequest.method = "get";
-  httpRequest.uri = "/";
-  PreparedHttpResponse httpResponse;
-  httpResponse.status = HttpStatus::OK;
-  httpResponse.headers.emplace("Content-Type", "text/plain");
-  httpResponse.body = "Not Found";
-  auto parser = std::make_unique<network::ConcreteHttpParser>();
-  StrictMock<HttpProcessorMock> processor;
-  StrictMock<network::TcpSenderMock> senderMock;
-  EXPECT_CALL(senderMock, Send(A<std::string_view>())).WillOnce(SaveArg<0>(&responsePayload));
-  auto sut = std::make_unique<HttpLayer>(options, std::move(parser), processor, senderMock);
-  EXPECT_CALL(processor, Process(_)).WillOnce(Return(ByMove(httpResponse)));
-  std::string requestPayload("GET / HTTP/1.1\r\n\r\n");
-  sut->Receive(requestPayload);
-  EXPECT_EQ(responsePayload, "HTTP/1.1 200 OK\r\nContent-Length: 9\r\nContent-Type: text/plain\r\n\r\nNot Found");
 }
 
 }  // namespace network

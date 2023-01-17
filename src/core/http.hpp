@@ -1,51 +1,53 @@
 #pragma once
-#include <optional>
 #include "network.hpp"
 #include "parser.hpp"
 
 namespace network {
 
-class HttpResponseVisitor {
+class ConcreteHttpSender : public HttpSender {
 public:
-  explicit HttpResponseVisitor(TcpSender&);
-  void operator()(PreparedHttpResponse&&) const;
-  void operator()(FileHttpResponse&&) const;
-  void operator()(RawStreamHttpResponse&&) const;
+  ConcreteHttpSender(TcpSender&);
+  void Send(PreparedHttpResponse&&) override;
+  void Send(FileHttpResponse&&) override;
+  void Send(MixedReplaceHeaderHttpResponse&&) override;
+  void Send(MixedReplaceDataHttpResponse&&) override;
+  void Close() override;
 
 private:
   TcpSender& sender;
 };
 
-class HttpLayer : public network::TcpReceiver {
+class HttpLayer : public network::TcpProcessor {
 public:
-  HttpLayer(const HttpOptions&, std::unique_ptr<HttpParser>, HttpProcessor&, TcpSender&);
+  HttpLayer(
+      const HttpOptions&, std::unique_ptr<HttpParser>, std::unique_ptr<HttpSender>, std::unique_ptr<HttpProcessor>);
   HttpLayer(const HttpLayer&) = delete;
   HttpLayer(HttpLayer&&) = delete;
   HttpLayer& operator=(const HttpLayer&) = delete;
   HttpLayer& operator=(HttpLayer&&) = delete;
   ~HttpLayer() = default;
-  void Receive(std::string_view) override;
+  void Process(std::string_view) override;
 
 private:
   HttpOptions options;
   std::unique_ptr<HttpParser> parser;
-  HttpProcessor& processor;
-  TcpSender& sender;
+  std::unique_ptr<HttpSender> sender;
+  std::unique_ptr<HttpProcessor> processor;
 };
 
-class HttpLayerFactory : public network::TcpReceiverFactory {
+class HttpLayerFactory : public network::TcpProcessorFactory {
 public:
-  HttpLayerFactory(const HttpOptions&, HttpProcessor&);
+  HttpLayerFactory(const HttpOptions&, HttpProcessorFactory&);
   HttpLayerFactory(const HttpLayerFactory&) = delete;
   HttpLayerFactory(HttpLayerFactory&&) = delete;
   HttpLayerFactory& operator=(const HttpLayerFactory&) = delete;
   HttpLayerFactory& operator=(HttpLayerFactory&&) = delete;
   ~HttpLayerFactory() = default;
-  std::unique_ptr<network::TcpReceiver> Create(TcpSender&) const override;
+  std::unique_ptr<network::TcpProcessor> Create(TcpSender&) const override;
 
 private:
   HttpOptions options;
-  HttpProcessor& processor;
+  HttpProcessorFactory& processorFactory;
 };
 
 }  // namespace network

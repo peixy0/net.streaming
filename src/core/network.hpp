@@ -8,23 +8,8 @@
 
 namespace network {
 
-class SenderNotifier {
-public:
-  virtual ~SenderNotifier() = default;
-  virtual void MarkPending() = 0;
-  virtual void UnmarkPending() = 0;
-};
-
-class RawStream {
-public:
-  virtual ~RawStream() = default;
-  virtual std::optional<std::string> GetBuffered() = 0;
-};
-
-class RawStreamFactory {
-public:
-  virtual ~RawStreamFactory() = default;
-  virtual std::unique_ptr<RawStream> GetStream(SenderNotifier&) = 0;
+struct TcpOptions {
+  size_t maxBufferedSize;
 };
 
 class TcpSenderSupervisor {
@@ -34,41 +19,38 @@ public:
   virtual void UnmarkSenderPending(int) = 0;
 };
 
-class TcpSender : public SenderNotifier {
+class TcpSender {
 public:
   virtual ~TcpSender() = default;
   virtual void Send(std::string_view) = 0;
   virtual void Send(os::File) = 0;
-  virtual void Send(std::unique_ptr<RawStream>) = 0;
   virtual void SendBuffered() = 0;
   virtual void Close() = 0;
 };
 
-class TcpReceiver {
+class TcpProcessor {
 public:
-  virtual ~TcpReceiver() = default;
-  virtual void Receive(std::string_view) = 0;
+  virtual ~TcpProcessor() = default;
+  virtual void Process(std::string_view) = 0;
 };
 
-class TcpReceiverFactory {
+class TcpProcessorFactory {
 public:
-  virtual std::unique_ptr<TcpReceiver> Create(TcpSender&) const = 0;
-};
-
-struct HttpHeader {
-  std::string field;
-  std::string value;
+  virtual std::unique_ptr<TcpProcessor> Create(TcpSender&) const = 0;
 };
 
 struct HttpOptions {
   size_t maxPayloadSize;
 };
 
-using HttpHeaders = std::unordered_map<std::string, std::string>;
-
 using HttpQuery = std::unordered_map<std::string, std::string>;
 
-enum class HttpStatus { OK, BadRequest, NotFound };
+struct HttpHeader {
+  std::string field;
+  std::string value;
+};
+
+using HttpHeaders = std::unordered_map<std::string, std::string>;
 
 struct HttpRequest {
   std::string method;
@@ -78,6 +60,8 @@ struct HttpRequest {
   HttpQuery query;
   std::string body;
 };
+
+enum class HttpStatus { OK, BadRequest, NotFound };
 
 struct PreparedHttpResponse {
   HttpStatus status;
@@ -90,16 +74,33 @@ struct FileHttpResponse {
   std::string path;
 };
 
-struct RawStreamHttpResponse {
-  RawStreamFactory& streamFactory;
+struct MixedReplaceHeaderHttpResponse {};
+
+struct MixedReplaceDataHttpResponse {
+  HttpHeaders headers;
+  std::string body;
 };
 
-using HttpResponse = std::variant<PreparedHttpResponse, FileHttpResponse, RawStreamHttpResponse>;
+class HttpSender {
+public:
+  virtual ~HttpSender() = default;
+  virtual void Send(PreparedHttpResponse&&) = 0;
+  virtual void Send(FileHttpResponse&&) = 0;
+  virtual void Send(MixedReplaceHeaderHttpResponse&&) = 0;
+  virtual void Send(MixedReplaceDataHttpResponse&&) = 0;
+  virtual void Close() = 0;
+};
 
 class HttpProcessor {
 public:
   virtual ~HttpProcessor() = default;
-  virtual HttpResponse Process(const HttpRequest&) = 0;
+  virtual void Process(HttpRequest&&) = 0;
+};
+
+class HttpProcessorFactory {
+public:
+  virtual ~HttpProcessorFactory() = default;
+  virtual std::unique_ptr<HttpProcessor> Create(HttpSender&) const = 0;
 };
 
 }  // namespace network

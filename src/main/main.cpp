@@ -17,8 +17,6 @@ int main(int argc, char* argv[]) {
   spdlog::set_level(spdlog::level::info);
   codec::DisableCodecLogs();
 
-  common::ConcreteEventQueue<application::StreamProcessorEvent> streamProcessorEventQueue;
-
   application::AppStreamProcessorOptions streamProcessorOptions;
   streamProcessorOptions.maxRecordingTimeInSeconds = 10 * 60;
   streamProcessorOptions.distributeMjpeg = true;
@@ -58,6 +56,8 @@ int main(int argc, char* argv[]) {
   writerOptions.framerate = encoderOptions.framerate;
   writerOptions.bitrate = encoderOptions.bitrate;
 
+  common::ConcreteEventQueue<application::StreamProcessorEvent> streamProcessorEventQueue;
+
   application::AppStreamDistributer mjpegDistributer;
   application::AppStreamSnapshotSaver snapshotSaver{mjpegDistributer};
 
@@ -68,11 +68,17 @@ int main(int argc, char* argv[]) {
   application::AppStreamCapturerRunner capturerRunner{streamOptions, streamProcessorEventQueue};
   capturerRunner.Run();
 
-  application::AppLayer app{mjpegDistributer, snapshotSaver, streamProcessorOptions, streamProcessorEventQueue};
+  application::AppStreamProcessorController streamProcessorController{streamProcessorEventQueue};
+  application::AppLayerFactory appFactory{mjpegDistributer, snapshotSaver, streamProcessorController};
+
   network::HttpOptions httpOptions;
   httpOptions.maxPayloadSize = 1 << 20;
-  network::HttpLayerFactory factory{httpOptions, app};
-  network::Tcp4Layer tcp{host, port, factory};
+  network::HttpLayerFactory httpLayerFactory{httpOptions, appFactory};
+
+  network::TcpOptions tcpOptions;
+  tcpOptions.maxBufferedSize = 60;
+  network::Tcp4Layer tcp{host, port, tcpOptions, httpLayerFactory};
   tcp.Start();
+
   return 0;
 }

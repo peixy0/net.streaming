@@ -78,60 +78,6 @@ private:
   mutable std::mutex snapshotMut;
 };
 
-class AppStream : public AppStreamReceiver, public network::RawStream {
-public:
-  AppStream(AppStreamDistributer&, network::SenderNotifier&);
-  virtual ~AppStream();
-  std::optional<std::string> GetBuffered() override;
-  void AddToBuffer(std::string&&);
-
-private:
-  AppStreamDistributer& distributer;
-  network::SenderNotifier& notifier;
-
-  std::deque<std::string> streamBuffer;
-  size_t bufferSize{0};
-  std::mutex streamMut;
-};
-
-class AppMjpegLowFramerateStream : public AppStream {
-public:
-  AppMjpegLowFramerateStream(AppStreamDistributer&, network::SenderNotifier&);
-  ~AppMjpegLowFramerateStream() override;
-  void Notify(std::string_view) override;
-
-private:
-  int skipped{0};
-};
-
-class AppMjpegLowFramerateStreamFactory : public network::RawStreamFactory {
-public:
-  explicit AppMjpegLowFramerateStreamFactory(AppStreamDistributer&);
-  std::unique_ptr<network::RawStream> GetStream(network::SenderNotifier&) override;
-
-private:
-  AppStreamDistributer& distributer;
-};
-
-class AppMjpegHighFramerateStream : public AppStream {
-public:
-  AppMjpegHighFramerateStream(AppStreamDistributer&, network::SenderNotifier&);
-  ~AppMjpegHighFramerateStream() override;
-  void Notify(std::string_view) override;
-
-private:
-  int skipped{0};
-};
-
-class AppMjpegHighFramerateStreamFactory : public network::RawStreamFactory {
-public:
-  explicit AppMjpegHighFramerateStreamFactory(AppStreamDistributer&);
-  std::unique_ptr<network::RawStream> GetStream(network::SenderNotifier&) override;
-
-private:
-  AppStreamDistributer& distributer;
-};
-
 class AppStreamDistributer {
 public:
   void Process(std::string_view);
