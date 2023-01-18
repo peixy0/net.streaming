@@ -36,11 +36,17 @@ public:
   ~AppStreamMpegTsSender() override;
   void Notify(std::string_view) override;
   void WriteData(std::string_view) override;
+  void RunTranscoder();
+  void RunSender();
 
 private:
   network::HttpSender& sender;
   AppStreamDistributer& mjpegDistributer;
   std::unique_ptr<AppStreamTranscoder> transcoder;
+  common::ConcreteEventQueue<std::optional<std::string>> transcoderQueue;
+  common::ConcreteEventQueue<std::optional<std::string>> senderQueue;
+  std::thread transcoderThread;
+  std::thread senderThread;
 };
 
 class AppStreamSnapshotSaver : public AppStreamReceiver {

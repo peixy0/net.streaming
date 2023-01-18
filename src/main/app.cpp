@@ -48,24 +48,43 @@ void AppHighFrameRateMjpegSender::Notify(std::string_view buffer) {
 AppStreamMpegTsSender::AppStreamMpegTsSender(
     network::HttpSender& sender, AppStreamDistributer& mjpegDistributer, AppStreamTranscoderFactory& transcoderFactory)
     : sender{sender}, mjpegDistributer{mjpegDistributer}, transcoder{transcoderFactory.Create(*this)} {
-  mjpegDistributer.AddSubscriber(this);
   network::ChunkedHeaderHttpResponse resp;
   resp.headers.emplace("Content-Type", "video/mpegts");
   sender.Send(std::move(resp));
+  transcoderThread = std::thread([this] { RunTranscoder(); });
+  senderThread = std::thread([this] { RunSender(); });
+  mjpegDistributer.AddSubscriber(this);
 }
 
 AppStreamMpegTsSender::~AppStreamMpegTsSender() {
   mjpegDistributer.RemoveSubscriber(this);
+  transcoderQueue.Push(std::nullopt);
+  senderQueue.Push(std::nullopt);
+  transcoderThread.join();
+  senderThread.join();
   transcoder.reset();
 }
 
 void AppStreamMpegTsSender::Notify(std::string_view buffer) {
-  transcoder->Process(buffer);
+  transcoderQueue.Push(std::make_optional<std::string>(buffer));
 }
 
 void AppStreamMpegTsSender::WriteData(std::string_view buffer) {
-  std::string body{buffer};
-  sender.Send(network::ChunkedDataHttpResponse{std::move(body)});
+  senderQueue.Push(std::make_optional<std::string>(buffer));
+}
+
+void AppStreamMpegTsSender::RunTranscoder() {
+  std::optional<std::string> bufferOpt;
+  while ((bufferOpt = transcoderQueue.Pop()) != std::nullopt) {
+    transcoder->Process(std::move(*bufferOpt));
+  }
+}
+
+void AppStreamMpegTsSender::RunSender() {
+  std::optional<std::string> bufferOpt;
+  while ((bufferOpt = senderQueue.Pop()) != std::nullopt) {
+    sender.Send(network::ChunkedDataHttpResponse{std::move(*bufferOpt)});
+  }
 }
 
 AppStreamSnapshotSaver::AppStreamSnapshotSaver(AppStreamDistributer& distributer) : distributer{distributer} {
