@@ -88,7 +88,7 @@ public:
 
 private:
   std::set<AppStreamReceiver*> receivers;
-  std::mutex mutable receiversMut;
+  mutable std::mutex receiversMut;
 };
 
 class AppStreamCapturerRunner : public video::StreamProcessor {

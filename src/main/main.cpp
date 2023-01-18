@@ -41,12 +41,12 @@ int main(int argc, char* argv[]) {
       ":text='%{localtime}':fontcolor=yellow:x=10:y=10";
 
   codec::EncoderOptions encoderOptions;
+  encoderOptions.format = filterOptions.outFormat;
   encoderOptions.codec = "hevc_qsv";
   encoderOptions.width = filterOptions.width;
   encoderOptions.height = filterOptions.height;
   encoderOptions.framerate = filterOptions.framerate;
   encoderOptions.bitrate = 2000000;
-  encoderOptions.format = filterOptions.outFormat;
 
   codec::WriterOptions recorderWriterOptions;
   recorderWriterOptions.format = "mp4";

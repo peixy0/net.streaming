@@ -1,7 +1,5 @@
 #include "app.hpp"
 #include <spdlog/spdlog.h>
-#include "network.hpp"
-#include "stream.hpp"
 
 namespace application {
 
@@ -76,14 +74,27 @@ void AppStreamMpegTsSender::WriteData(std::string_view buffer) {
 void AppStreamMpegTsSender::RunTranscoder() {
   std::optional<std::string> bufferOpt;
   while ((bufferOpt = transcoderQueue.Pop()) != std::nullopt) {
+    if (transcoderQueue.Size() > 0) {
+      continue;
+    }
     transcoder->Process(std::move(*bufferOpt));
   }
 }
 
 void AppStreamMpegTsSender::RunSender() {
   std::optional<std::string> bufferOpt;
+  std::string buffer;
+  constexpr int batchedBufferSize = 1 << 18;
+  buffer.reserve(batchedBufferSize);
   while ((bufferOpt = senderQueue.Pop()) != std::nullopt) {
-    sender.Send(network::ChunkedDataHttpResponse{std::move(*bufferOpt)});
+    if (buffer.size() + bufferOpt->size() <= batchedBufferSize) {
+      buffer += std::move(*bufferOpt);
+      continue;
+    }
+    sender.Send(network::ChunkedDataHttpResponse{std::move(buffer)});
+    buffer.clear();
+    buffer.reserve(batchedBufferSize);
+    buffer += std::move(*bufferOpt);
   }
 }
 
