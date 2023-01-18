@@ -1,6 +1,7 @@
 #include "http.hpp"
 #include <spdlog/spdlog.h>
 #include <cctype>
+#include <sstream>
 #include "file.hpp"
 #include "network.hpp"
 
@@ -75,6 +76,24 @@ void ConcreteHttpSender::Send(MixedReplaceDataHttpResponse&& response) {
   sender.Send(std::move(respPayload));
 }
 
+void ConcreteHttpSender::Send(ChunkedHeaderHttpResponse&& response) {
+  std::string respPayload = "HTTP/1.1 " + to_string(HttpStatus::OK) +
+                            "\r\n"
+                            "Transfer-Encoding: chunked\r\n";
+  for (const auto& [k, v] : response.headers) {
+    respPayload += k + ": " + v + "\r\n";
+  }
+  respPayload += "\r\n";
+  sender.Send(std::move(respPayload));
+}
+
+void ConcreteHttpSender::Send(ChunkedDataHttpResponse&& response) {
+  std::stringstream ss;
+  ss << std::hex << response.body.size();
+  ss << "\r\n" << response.body << "\r\n";
+  sender.Send(ss.str());
+}
+
 void ConcreteHttpSender::Close() {
   sender.Close();
 }
@@ -82,6 +101,12 @@ void ConcreteHttpSender::Close() {
 HttpLayer::HttpLayer(const HttpOptions& options, std::unique_ptr<HttpParser> parser, std::unique_ptr<HttpSender> sender,
     std::unique_ptr<HttpProcessor> processor)
     : options{options}, parser{std::move(parser)}, sender{std::move(sender)}, processor{std::move(processor)} {
+}
+
+HttpLayer::~HttpLayer() {
+  processor.reset();
+  parser.reset();
+  sender.reset();
 }
 
 void HttpLayer::Process(std::string_view payload) {

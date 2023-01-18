@@ -81,6 +81,14 @@ struct MixedReplaceDataHttpResponse {
   std::string body;
 };
 
+struct ChunkedHeaderHttpResponse {
+  HttpHeaders headers;
+};
+
+struct ChunkedDataHttpResponse {
+  std::string body;
+};
+
 class HttpSender {
 public:
   virtual ~HttpSender() = default;
@@ -88,6 +96,8 @@ public:
   virtual void Send(FileHttpResponse&&) = 0;
   virtual void Send(MixedReplaceHeaderHttpResponse&&) = 0;
   virtual void Send(MixedReplaceDataHttpResponse&&) = 0;
+  virtual void Send(ChunkedHeaderHttpResponse&&) = 0;
+  virtual void Send(ChunkedDataHttpResponse&&) = 0;
   virtual void Close() = 0;
 };
 

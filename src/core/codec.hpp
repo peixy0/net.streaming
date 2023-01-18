@@ -115,7 +115,14 @@ private:
   Encoder& encoder;
 };
 
+class WriterProcessor {
+public:
+  virtual ~WriterProcessor() = default;
+  virtual void WriteData(std::string_view) = 0;
+};
+
 struct WriterOptions {
+  std::string format;
   std::string codec;
   int width;
   int height;
@@ -125,16 +132,19 @@ struct WriterOptions {
 
 class Writer {
 public:
-  Writer(std::string_view, const WriterOptions&);
+  Writer(const WriterOptions&, WriterProcessor&);
   ~Writer();
   void Process(AVPacket*);
+  void WriterCallback(std::string_view);
 
 private:
   WriterOptions options;
+  WriterProcessor& processor;
   AVFormatContext* formatContext{nullptr};
   AVStream* stream;
   AVPacket* packet{nullptr};
-  int pts{0};
+  std::uint8_t* buffer{nullptr};
+  int bufferSize{1 << 16};
 };
 
 }  // namespace codec

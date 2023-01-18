@@ -93,7 +93,7 @@ void ConcreteTcpSender::SendBuffered() {
 
 void ConcreteTcpSender::Send(std::string_view buf) {
   std::lock_guard lock{senderMut};
-  if (buffered.size() > maxBufferedSize) {
+  if (maxBufferedSize != 0 and buffered.size() >= maxBufferedSize) {
     return;
   }
   buffered.emplace_back(std::make_unique<TcpSendBuffer>(peer, buf));
@@ -102,7 +102,7 @@ void ConcreteTcpSender::Send(std::string_view buf) {
 
 void ConcreteTcpSender::Send(os::File file) {
   std::lock_guard lock{senderMut};
-  if (buffered.size() > maxBufferedSize) {
+  if (maxBufferedSize != 0 and buffered.size() >= maxBufferedSize) {
     return;
   }
   buffered.emplace_back(std::make_unique<TcpSendFile>(peer, std::move(file)));
@@ -141,6 +141,8 @@ TcpConnectionContext::TcpConnectionContext(
 
 TcpConnectionContext::~TcpConnectionContext() {
   spdlog::info("tcp connection closed: {}", fd);
+  receiver.reset();
+  sender.reset();
 }
 
 TcpProcessor& TcpConnectionContext::GetReceiver() {

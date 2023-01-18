@@ -1,11 +1,13 @@
 #include "app.hpp"
 #include <spdlog/spdlog.h>
+#include "network.hpp"
+#include "stream.hpp"
 
 namespace application {
 
 AppLowFrameRateMjpegSender::AppLowFrameRateMjpegSender(
-    AppStreamDistributer& mjpegDistributer, network::HttpSender& sender)
-    : mjpegDistributer{mjpegDistributer}, sender{sender} {
+    network::HttpSender& sender, AppStreamDistributer& mjpegDistributer)
+    : sender{sender}, mjpegDistributer{mjpegDistributer} {
   sender.Send(network::MixedReplaceHeaderHttpResponse{});
   mjpegDistributer.AddSubscriber(this);
 }
@@ -26,8 +28,8 @@ void AppLowFrameRateMjpegSender::Notify(std::string_view buffer) {
 }
 
 AppHighFrameRateMjpegSender::AppHighFrameRateMjpegSender(
-    AppStreamDistributer& mjpegDistributer, network::HttpSender& sender)
-    : mjpegDistributer{mjpegDistributer}, sender{sender} {
+    network::HttpSender& sender, AppStreamDistributer& mjpegDistributer)
+    : sender{sender}, mjpegDistributer{mjpegDistributer} {
   sender.Send(network::MixedReplaceHeaderHttpResponse{});
   mjpegDistributer.AddSubscriber(this);
 }
@@ -41,6 +43,29 @@ void AppHighFrameRateMjpegSender::Notify(std::string_view buffer) {
   resp.headers.emplace("Content-Type", "image/jpeg");
   resp.body = buffer;
   return sender.Send(std::move(resp));
+}
+
+AppStreamMpegTsSender::AppStreamMpegTsSender(
+    network::HttpSender& sender, AppStreamDistributer& mjpegDistributer, AppStreamTranscoderFactory& transcoderFactory)
+    : sender{sender}, mjpegDistributer{mjpegDistributer}, transcoder{transcoderFactory.Create(*this)} {
+  mjpegDistributer.AddSubscriber(this);
+  network::ChunkedHeaderHttpResponse resp;
+  resp.headers.emplace("Content-Type", "video/mpegts");
+  sender.Send(std::move(resp));
+}
+
+AppStreamMpegTsSender::~AppStreamMpegTsSender() {
+  mjpegDistributer.RemoveSubscriber(this);
+  transcoder.reset();
+}
+
+void AppStreamMpegTsSender::Notify(std::string_view buffer) {
+  transcoder->Process(buffer);
+}
+
+void AppStreamMpegTsSender::WriteData(std::string_view buffer) {
+  std::string body{buffer};
+  sender.Send(network::ChunkedDataHttpResponse{std::move(body)});
 }
 
 AppStreamSnapshotSaver::AppStreamSnapshotSaver(AppStreamDistributer& distributer) : distributer{distributer} {
@@ -97,14 +122,17 @@ bool AppStreamRecorderController::IsRecording() const {
 }
 
 AppLayer::AppLayer(network::HttpSender& sender, AppStreamDistributer& mjpegDistributer,
-    AppStreamSnapshotSaver& snapshotSaver, AppStreamRecorderController& processorController)
+    AppStreamSnapshotSaver& snapshotSaver, AppStreamRecorderController& recorderController,
+    AppStreamTranscoderFactory& transcoderFactory)
     : sender{sender},
       mjpegDistributer{mjpegDistributer},
       snapshotSaver{snapshotSaver},
-      processorController{processorController} {
+      processorController{recorderController},
+      transcoderFactory{transcoderFactory} {
 }
 
 AppLayer::~AppLayer() {
+  streamSender.reset();
 }
 
 void AppLayer::Process(network::HttpRequest&& req) {
@@ -124,11 +152,15 @@ void AppLayer::Process(network::HttpRequest&& req) {
     return sender.Send(std::move(resp));
   }
   if (req.uri == "/mjpeg") {
-    streamReceiver = std::make_unique<AppLowFrameRateMjpegSender>(mjpegDistributer, sender);
+    streamSender = std::make_unique<AppLowFrameRateMjpegSender>(sender, mjpegDistributer);
     return;
   }
   if (req.uri == "/mjpeg2") {
-    streamReceiver = std::make_unique<AppHighFrameRateMjpegSender>(mjpegDistributer, sender);
+    streamSender = std::make_unique<AppHighFrameRateMjpegSender>(sender, mjpegDistributer);
+    return;
+  }
+  if (req.uri == "/mpegts") {
+    streamSender = std::make_unique<AppStreamMpegTsSender>(sender, mjpegDistributer, transcoderFactory);
     return;
   }
   if (req.uri == "/recording") {
@@ -159,12 +191,15 @@ network::PreparedHttpResponse AppLayer::BuildPlainTextRequest(network::HttpStatu
 }
 
 AppLayerFactory::AppLayerFactory(AppStreamDistributer& mjpegDistributer, AppStreamSnapshotSaver& snapshotSaver,
-    AppStreamRecorderController& configuration)
-    : mjpegDistributer{mjpegDistributer}, snapshotSaver{snapshotSaver}, processorController{configuration} {
+    AppStreamRecorderController& recorderController, AppStreamTranscoderFactory& transcoderFactory)
+    : mjpegDistributer{mjpegDistributer},
+      snapshotSaver{snapshotSaver},
+      recorderController{recorderController},
+      transcoderFactory{transcoderFactory} {
 }
 
 std::unique_ptr<network::HttpProcessor> AppLayerFactory::Create(network::HttpSender& sender) const {
-  return std::make_unique<AppLayer>(sender, mjpegDistributer, snapshotSaver, processorController);
+  return std::make_unique<AppLayer>(sender, mjpegDistributer, snapshotSaver, recorderController, transcoderFactory);
 }
 
 }  // namespace application

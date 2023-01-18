@@ -3,16 +3,63 @@
 
 namespace application {
 
-AppStreamRecorderRunner::AppStreamRecorderRunner(common::EventQueue<AppRecorderEvent>& eventQueue,
-    const AppStreamRecorderOptions& recorderOptions, const codec::DecoderOptions& decoderOptions,
+AppStreamRecordWriter::AppStreamRecordWriter(std::string_view filename_) : filename{filename_} {
+  fp = fopen(filename.c_str(), "wb");
+}
+
+AppStreamRecordWriter::~AppStreamRecordWriter() {
+  fclose(fp);
+}
+
+void AppStreamRecordWriter::WriteData(std::string_view buffer) {
+  fwrite(buffer.data(), 1, buffer.size(), fp);
+}
+
+AppStreamTranscoder::AppStreamTranscoder(const codec::DecoderOptions& decoderOptions,
+    const codec::FilterOptions& filterOptions, const codec::EncoderOptions& encoderOptions,
+    const codec::WriterOptions& writerOptions, codec::WriterProcessor& processor) {
+  decoder = std::make_unique<codec::Decoder>(decoderOptions);
+  filter = std::make_unique<codec::Filter>(filterOptions);
+  encoder = std::make_unique<codec::Encoder>(encoderOptions);
+  transcoder = std::make_unique<codec::Transcoder>(*decoder, *filter, *encoder);
+  writer = std::make_unique<codec::Writer>(writerOptions, processor);
+}
+
+AppStreamTranscoder::~AppStreamTranscoder() {
+  if (transcoder) {
+    transcoder->Flush(*this);
+  }
+  transcoder.reset();
+  writer.reset();
+  decoder.reset();
+  filter.reset();
+  encoder.reset();
+}
+
+void AppStreamTranscoder::Process(std::string_view buffer) {
+  transcoder->Process(buffer, *this);
+}
+
+void AppStreamTranscoder::ProcessEncodedData(AVPacket* encoded) {
+  writer->Process(encoded);
+}
+
+AppStreamTranscoderFactory::AppStreamTranscoderFactory(const codec::DecoderOptions& decoderOptions,
     const codec::FilterOptions& filterOptions, const codec::EncoderOptions& encoderOptions,
     const codec::WriterOptions& writerOptions)
-    : eventQueue{eventQueue},
-      recorderOptions{recorderOptions},
-      decoderOptions{decoderOptions},
+    : decoderOptions{decoderOptions},
       filterOptions{filterOptions},
       encoderOptions{encoderOptions},
       writerOptions{writerOptions} {
+}
+
+std::unique_ptr<AppStreamTranscoder> AppStreamTranscoderFactory::Create(codec::WriterProcessor& processor) {
+  return std::make_unique<AppStreamTranscoder>(decoderOptions, filterOptions, encoderOptions, writerOptions, processor);
+}
+
+AppStreamRecorderRunner::AppStreamRecorderRunner(common::EventQueue<AppRecorderEvent>& eventQueue,
+    const AppStreamRecorderOptions& recorderOptions, AppStreamTranscoderFactory& transcoderFactory)
+    : eventQueue{eventQueue}, recorderOptions{recorderOptions}, transcoderFactory{transcoderFactory} {
   Reset();
 }
 
@@ -36,39 +83,18 @@ void AppStreamRecorderRunner::Process(std::string_view buffer) {
       Reset();
     }
   }
-  transcoder->Process(buffer, *this);
-}
-
-void AppStreamRecorderRunner::ProcessEncodedData(AVPacket* encoded) {
-  if (recorderOptions.saveRecord) {
-    writer->Process(encoded);
-  }
+  transcoder->Process(buffer);
 }
 
 void AppStreamRecorderRunner::Reset() {
-  ResetWriter();
-  encoder.reset();
-  filter.reset();
-  decoder.reset();
   transcoder.reset();
-  if (recorderOptions.saveRecord) {
-    decoder = std::make_unique<codec::Decoder>(decoderOptions);
-    filter = std::make_unique<codec::Filter>(filterOptions);
-    encoder = std::make_unique<codec::Encoder>(encoderOptions);
-    transcoder = std::make_unique<codec::Transcoder>(*decoder, *filter, *encoder);
-  }
-}
-
-void AppStreamRecorderRunner::ResetWriter() {
-  if (transcoder) {
-    transcoder->Flush(*this);
-  }
-  writer.reset();
+  recordWriter.reset();
   if (recorderOptions.saveRecord) {
     recorderStartTime = std::time(nullptr);
     char buf[50];
-    std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.mp4", std::localtime(&recorderStartTime));
-    writer = std::make_unique<codec::Writer>(buf, writerOptions);
+    std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.ts", std::localtime(&recorderStartTime));
+    recordWriter = std::make_unique<AppStreamRecordWriter>(buf);
+    transcoder = transcoderFactory.Create(*recordWriter);
   }
 }
 

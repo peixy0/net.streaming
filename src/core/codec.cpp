@@ -10,7 +10,7 @@ extern "C" {
 
 namespace {
 
-AVPixelFormat convert(codec::PixelFormat fmt) {
+AVPixelFormat Convert(codec::PixelFormat fmt) {
   switch (fmt) {
     case codec::PixelFormat::YUVJ422:
       return AV_PIX_FMT_YUVJ422P;
@@ -22,6 +22,13 @@ AVPixelFormat convert(codec::PixelFormat fmt) {
       return AV_PIX_FMT_NV12;
   }
   return AV_PIX_FMT_YUV420P;
+}
+
+int WriterCallbackHelper(void* writer_, std::uint8_t* buffer, int size) {
+  codec::Writer* writer = static_cast<codec::Writer*>(writer_);
+  const char* p = reinterpret_cast<char*>(buffer);
+  writer->WriterCallback({p, p + size});
+  return size;
 }
 
 }  // namespace
@@ -144,7 +151,7 @@ Filter::Filter(const FilterOptions& options) {
   graph = avfilter_graph_alloc();
   char args[512];
   std::snprintf(args, sizeof args, "video_size=%dx%d:pix_fmt=%d:time_base=1/%d:pixel_aspect=1/1", options.width,
-      options.height, convert(options.inFormat), options.framerate);
+      options.height, Convert(options.inFormat), options.framerate);
   if ((r = avfilter_graph_create_filter(&contextIn, bufferIn, "in", args, nullptr, graph)) < 0) {
     spdlog::error("codec avfilter_graph_create_filter(in): {}", r);
     return;
@@ -153,7 +160,7 @@ Filter::Filter(const FilterOptions& options) {
     spdlog::error("codec avfilter_graph_create_filter(out): {}", r);
     return;
   }
-  const auto outFmt = convert(options.outFormat);
+  const auto outFmt = Convert(options.outFormat);
   if ((r = av_opt_set_bin(contextOut, "pix_fmts", reinterpret_cast<const std::uint8_t*>(&outFmt), sizeof outFmt,
            AV_OPT_SEARCH_CHILDREN)) < 0) {
     spdlog::error("codec av_opt_set_bin(): {}", r);
@@ -232,7 +239,7 @@ Encoder::Encoder(const EncoderOptions& options) {
   context->framerate.num = options.framerate;
   context->framerate.den = 1;
   context->gop_size = 12;
-  context->pix_fmt = convert(options.format);
+  context->pix_fmt = Convert(options.format);
   context->color_range = AVCOL_RANGE_JPEG;
   av_opt_set(context->priv_data, "preset", "fast", 0);
   if ((r = avcodec_open2(context, codec, nullptr)) < 0) {
@@ -241,7 +248,7 @@ Encoder::Encoder(const EncoderOptions& options) {
   }
   frame = av_frame_alloc();
   if (frame == nullptr) {
-    spdlog::error("codce av_frame_alloc()");
+    spdlog::error("codec av_frame_alloc()");
     return;
   }
   frame->format = context->pix_fmt;
@@ -252,12 +259,12 @@ Encoder::Encoder(const EncoderOptions& options) {
     return;
   }
   if ((r = av_frame_make_writable(frame)) < 0) {
-    spdlog::error("codce av_frame_make_writable(): {}", r);
+    spdlog::error("codec av_frame_make_writable(): {}", r);
     return;
   }
   packet = av_packet_alloc();
   if (packet == nullptr) {
-    spdlog::error("codce av_packet_alloc()");
+    spdlog::error("codec av_packet_alloc()");
     return;
   }
 }
@@ -275,7 +282,7 @@ void Encoder::GetEncodedPacket(EncodedDataProcessor& processor) const {
       return;
     }
     if (r < 0) {
-      spdlog::error("codce avcodec_receive_packet(): {}", r);
+      spdlog::error("codec avcodec_receive_packet(): {}", r);
       return;
     }
     const PacketRefGuard packetRef{packet};
@@ -287,7 +294,7 @@ void Encoder::Encode(AVFrame* frame, EncodedDataProcessor& processor) {
   int r;
   frame->pts = pts++;
   if ((r = avcodec_send_frame(context, frame)) < 0) {
-    spdlog::error("codce avcodec_send_frame(): {}", r);
+    spdlog::error("codec avcodec_send_frame(): {}", r);
     return;
   }
   GetEncodedPacket(processor);
@@ -296,7 +303,7 @@ void Encoder::Encode(AVFrame* frame, EncodedDataProcessor& processor) {
 void Encoder::Flush(EncodedDataProcessor& processor) const {
   int r;
   if ((r = avcodec_send_frame(context, nullptr)) < 0) {
-    spdlog::error("codce avcodec_send_frame(): {}", r);
+    spdlog::error("codec avcodec_send_frame(): {}", r);
     return;
   }
   GetEncodedPacket(processor);
@@ -337,21 +344,21 @@ void Transcoder::Flush(EncodedDataProcessor& processor) {
   encoder.Flush(processor);
 }
 
-Writer::Writer(std::string_view filename, const WriterOptions& options_) : options{options_} {
+Writer::Writer(const WriterOptions& options_, WriterProcessor& processor) : options{options_}, processor{processor} {
   int r;
-  const std::string s{filename};
-  if ((r = avformat_alloc_output_context2(&formatContext, nullptr, nullptr, s.c_str())) < 0) {
-    spdlog::error("codce avformat_alloc_output_context2(): {}", r);
+  if ((r = avformat_alloc_output_context2(&formatContext, nullptr, options.format.c_str(), nullptr)) < 0) {
+    spdlog::error("codec avformat_alloc_output_context2(): {}", r);
     return;
   }
+  formatContext->flags |= AVFMT_FLAG_CUSTOM_IO;
   stream = avformat_new_stream(formatContext, nullptr);
   if (stream == nullptr) {
-    spdlog::error("codce avformat_new_stream()");
+    spdlog::error("codec avformat_new_stream()");
     return;
   }
   const auto* codec = avcodec_find_encoder_by_name(options.codec.c_str());
   if (codec == nullptr) {
-    spdlog::error("codce avcodec_find_encoder_by_name({})", options.codec);
+    spdlog::error("codec avcodec_find_encoder_by_name({})", options.codec);
     return;
   }
   stream->codecpar->codec_id = codec->id;
@@ -361,17 +368,20 @@ Writer::Writer(std::string_view filename, const WriterOptions& options_) : optio
   stream->codecpar->height = options.height;
   stream->time_base.num = 1;
   stream->time_base.den = options.framerate;
-  if ((r = avio_open(&formatContext->pb, s.c_str(), AVIO_FLAG_WRITE)) < 0) {
-    spdlog::error("codce avio_open(): {}", r);
+  constexpr int writable = 1;
+  buffer = static_cast<std::uint8_t*>(av_malloc(bufferSize));
+  formatContext->pb = avio_alloc_context(buffer, sizeof buffer, writable, this, nullptr, WriterCallbackHelper, nullptr);
+  if (formatContext->pb == nullptr) {
+    spdlog::error("codec avcodec_find_encoder_by_name({})", options.codec);
     return;
   }
   if ((r = avformat_write_header(formatContext, nullptr)) < 0) {
-    spdlog::error("codce avformat_write_header(): {}", r);
+    spdlog::error("codec avformat_write_header(): {}", r);
     return;
   }
   packet = av_packet_alloc();
   if (packet == nullptr) {
-    spdlog::error("codce av_packet_alloc()");
+    spdlog::error("codec av_packet_alloc()");
     return;
   }
 }
@@ -379,8 +389,9 @@ Writer::Writer(std::string_view filename, const WriterOptions& options_) : optio
 Writer::~Writer() {
   if (formatContext and formatContext->pb) {
     av_write_trailer(formatContext);
-    avio_close(formatContext->pb);
+    avio_context_free(&formatContext->pb);
   }
+  av_free(buffer);
   av_packet_free(&packet);
   avformat_free_context(formatContext);
   formatContext = nullptr;
@@ -390,9 +401,13 @@ void Writer::Process(AVPacket* packet) {
   int r;
   av_packet_rescale_ts(packet, {1, options.framerate}, stream->time_base);
   if ((r = av_interleaved_write_frame(formatContext, packet)) < 0) {
-    spdlog::error("codce av_interleaved_write_frame(): {}", r);
+    spdlog::error("codec av_interleaved_write_frame(): {}", r);
     return;
   }
+}
+
+void Writer::WriterCallback(std::string_view buffer) {
+  processor.WriteData(buffer);
 }
 
 }  // namespace codec

@@ -11,6 +11,8 @@ public:
   void Send(FileHttpResponse&&) override;
   void Send(MixedReplaceHeaderHttpResponse&&) override;
   void Send(MixedReplaceDataHttpResponse&&) override;
+  void Send(ChunkedHeaderHttpResponse&&) override;
+  void Send(ChunkedDataHttpResponse&&) override;
   void Close() override;
 
 private:
@@ -25,7 +27,7 @@ public:
   HttpLayer(HttpLayer&&) = delete;
   HttpLayer& operator=(const HttpLayer&) = delete;
   HttpLayer& operator=(HttpLayer&&) = delete;
-  ~HttpLayer() = default;
+  ~HttpLayer();
   void Process(std::string_view) override;
 
 private:

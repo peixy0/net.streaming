@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
   filterOptions.width = streamOptions.width;
   filterOptions.height = streamOptions.height;
   filterOptions.framerate = streamOptions.framerate;
-  filterOptions.inFormat = codec::PixelFormat::YUVJ422;
+  filterOptions.inFormat = codec::PixelFormat::NV12;
   filterOptions.outFormat = codec::PixelFormat::NV12;
   filterOptions.description =
       "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
@@ -49,33 +49,34 @@ int main(int argc, char* argv[]) {
   encoderOptions.format = filterOptions.outFormat;
 
   codec::WriterOptions writerOptions;
+  writerOptions.format = "mpegts";
   writerOptions.codec = encoderOptions.codec;
   writerOptions.width = encoderOptions.width;
   writerOptions.height = encoderOptions.height;
   writerOptions.framerate = encoderOptions.framerate;
   writerOptions.bitrate = encoderOptions.bitrate;
 
-  common::ConcreteEventQueue<application::AppRecorderEvent> streamProcessorEventQueue;
-
   application::AppStreamDistributer mjpegDistributer;
-  application::AppStreamSnapshotSaver snapshotSaver{mjpegDistributer};
-  application::AppStreamRecorderController streamRecorderController{mjpegDistributer, streamProcessorEventQueue};
-
-  application::AppStreamRecorderRunner recorderRunner{
-      streamProcessorEventQueue, streamRecorderOptions, decoderOptions, filterOptions, encoderOptions, writerOptions};
-  recorderRunner.Run();
-
   application::AppStreamCapturerRunner capturerRunner{streamOptions, mjpegDistributer};
   capturerRunner.Run();
 
-  application::AppLayerFactory appFactory{mjpegDistributer, snapshotSaver, streamRecorderController};
+  common::ConcreteEventQueue<application::AppRecorderEvent> streamProcessorEventQueue;
+  application::AppStreamTranscoderFactory transcoderFactory{
+      decoderOptions, filterOptions, encoderOptions, writerOptions};
+  application::AppStreamRecorderRunner recorderRunner{
+      streamProcessorEventQueue, streamRecorderOptions, transcoderFactory};
+  recorderRunner.Run();
+
+  application::AppStreamSnapshotSaver snapshotSaver{mjpegDistributer};
+  application::AppStreamRecorderController streamRecorderController{mjpegDistributer, streamProcessorEventQueue};
+  application::AppLayerFactory appFactory{mjpegDistributer, snapshotSaver, streamRecorderController, transcoderFactory};
 
   network::HttpOptions httpOptions;
   httpOptions.maxPayloadSize = 1 << 20;
   network::HttpLayerFactory httpLayerFactory{httpOptions, appFactory};
 
   network::TcpOptions tcpOptions;
-  tcpOptions.maxBufferedSize = 60;
+  tcpOptions.maxBufferedSize = 0;
   network::Tcp4Layer tcp{host, port, tcpOptions, httpLayerFactory};
   tcp.Start();
 

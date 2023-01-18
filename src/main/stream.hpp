@@ -10,6 +10,46 @@
 
 namespace application {
 
+class AppStreamRecordWriter : public codec::WriterProcessor {
+public:
+  explicit AppStreamRecordWriter(std::string_view);
+  ~AppStreamRecordWriter() override;
+  void WriteData(std::string_view) override;
+
+private:
+  std::string filename;
+  FILE* fp;
+};
+
+class AppStreamTranscoder : public codec::EncodedDataProcessor {
+public:
+  AppStreamTranscoder(const codec::DecoderOptions&, const codec::FilterOptions&, const codec::EncoderOptions&,
+      const codec::WriterOptions&, codec::WriterProcessor&);
+  ~AppStreamTranscoder() override;
+  void Process(std::string_view);
+  void ProcessEncodedData(AVPacket*) override;
+
+private:
+  std::unique_ptr<codec::Decoder> decoder;
+  std::unique_ptr<codec::Filter> filter;
+  std::unique_ptr<codec::Encoder> encoder;
+  std::unique_ptr<codec::Transcoder> transcoder;
+  std::unique_ptr<codec::Writer> writer;
+};
+
+class AppStreamTranscoderFactory {
+public:
+  AppStreamTranscoderFactory(const codec::DecoderOptions&, const codec::FilterOptions&, const codec::EncoderOptions&,
+      const codec::WriterOptions&);
+  std::unique_ptr<AppStreamTranscoder> Create(codec::WriterProcessor&);
+
+private:
+  codec::DecoderOptions decoderOptions;
+  codec::FilterOptions filterOptions;
+  codec::EncoderOptions encoderOptions;
+  codec::WriterOptions writerOptions;
+};
+
 struct AppStreamRecorderOptions {
   bool saveRecord;
   int maxRecordingTimeInSeconds;
@@ -22,37 +62,27 @@ struct RecordData {
 };
 using AppRecorderEvent = std::variant<StartRecording, StopRecording, RecordData>;
 
-class AppStreamRecorderRunner : public codec::EncodedDataProcessor {
+class AppStreamRecorderRunner {
 public:
-  AppStreamRecorderRunner(common::EventQueue<AppRecorderEvent>&, const AppStreamRecorderOptions&,
-      const codec::DecoderOptions&, const codec::FilterOptions&, const codec::EncoderOptions&,
-      const codec::WriterOptions&);
+  AppStreamRecorderRunner(
+      common::EventQueue<AppRecorderEvent>&, const AppStreamRecorderOptions&, AppStreamTranscoderFactory&);
   void Run();
   void Process(std::string_view);
-  void ProcessEncodedData(AVPacket*) override;
   void operator()(const StartRecording&);
   void operator()(const StopRecording&);
   void operator()(const RecordData&);
 
 private:
   void Reset();
-  void ResetWriter();
 
   std::thread processorThread;
   common::EventQueue<AppRecorderEvent>& eventQueue;
-
   AppStreamRecorderOptions recorderOptions;
-  const codec::DecoderOptions decoderOptions;
-  const codec::FilterOptions filterOptions;
-  const codec::EncoderOptions encoderOptions;
-  const codec::WriterOptions writerOptions;
+  AppStreamTranscoderFactory& transcoderFactory;
 
+  std::unique_ptr<AppStreamTranscoder> transcoder;
+  std::unique_ptr<AppStreamRecordWriter> recordWriter;
   std::time_t recorderStartTime;
-  std::unique_ptr<codec::Decoder> decoder;
-  std::unique_ptr<codec::Filter> filter;
-  std::unique_ptr<codec::Encoder> encoder;
-  std::unique_ptr<codec::Transcoder> transcoder;
-  std::unique_ptr<codec::Writer> writer;
 };
 
 class AppStreamReceiver {
