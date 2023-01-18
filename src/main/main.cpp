@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
   }
   auto* host = argv[1];
   std::uint16_t port = std::atoi(argv[2]);
-  spdlog::set_level(spdlog::level::err);
+  spdlog::set_level(spdlog::level::info);
   codec::DisableCodecLogs();
 
   application::AppStreamRecorderOptions streamRecorderOptions;
@@ -48,28 +48,39 @@ int main(int argc, char* argv[]) {
   encoderOptions.bitrate = 2000000;
   encoderOptions.format = filterOptions.outFormat;
 
-  codec::WriterOptions writerOptions;
-  writerOptions.format = "mpegts";
-  writerOptions.codec = encoderOptions.codec;
-  writerOptions.width = encoderOptions.width;
-  writerOptions.height = encoderOptions.height;
-  writerOptions.framerate = encoderOptions.framerate;
-  writerOptions.bitrate = encoderOptions.bitrate;
+  codec::WriterOptions recorderWriterOptions;
+  recorderWriterOptions.format = "mp4";
+  recorderWriterOptions.codec = encoderOptions.codec;
+  recorderWriterOptions.width = encoderOptions.width;
+  recorderWriterOptions.height = encoderOptions.height;
+  recorderWriterOptions.framerate = encoderOptions.framerate;
+  recorderWriterOptions.bitrate = encoderOptions.bitrate;
+
+  codec::WriterOptions liveWriterOptions;
+  liveWriterOptions.format = "mpegts";
+  liveWriterOptions.codec = encoderOptions.codec;
+  liveWriterOptions.width = encoderOptions.width;
+  liveWriterOptions.height = encoderOptions.height;
+  liveWriterOptions.framerate = encoderOptions.framerate;
+  liveWriterOptions.bitrate = encoderOptions.bitrate;
 
   application::AppStreamDistributer mjpegDistributer;
   application::AppStreamCapturerRunner capturerRunner{streamOptions, mjpegDistributer};
   capturerRunner.Run();
 
   common::ConcreteEventQueue<application::AppRecorderEvent> streamProcessorEventQueue;
-  application::AppStreamTranscoderFactory transcoderFactory{
-      decoderOptions, filterOptions, encoderOptions, writerOptions};
+  application::AppStreamTranscoderFactory recorderTranscoderFactory{
+      decoderOptions, filterOptions, encoderOptions, recorderWriterOptions};
   application::AppStreamRecorderRunner recorderRunner{
-      streamProcessorEventQueue, streamRecorderOptions, transcoderFactory};
+      streamProcessorEventQueue, streamRecorderOptions, recorderTranscoderFactory};
   recorderRunner.Run();
 
   application::AppStreamSnapshotSaver snapshotSaver{mjpegDistributer};
   application::AppStreamRecorderController streamRecorderController{mjpegDistributer, streamProcessorEventQueue};
-  application::AppLayerFactory appFactory{mjpegDistributer, snapshotSaver, streamRecorderController, transcoderFactory};
+  application::AppStreamTranscoderFactory liveTranscoderFactory{
+      decoderOptions, filterOptions, encoderOptions, liveWriterOptions};
+  application::AppLayerFactory appFactory{
+      mjpegDistributer, snapshotSaver, streamRecorderController, liveTranscoderFactory};
 
   network::HttpOptions httpOptions;
   httpOptions.maxPayloadSize = 1 << 20;

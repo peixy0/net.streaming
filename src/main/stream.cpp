@@ -3,32 +3,20 @@
 
 namespace application {
 
-AppStreamRecordWriter::AppStreamRecordWriter(std::string_view filename_) : filename{filename_} {
-  fp = fopen(filename.c_str(), "wb");
-}
-
-AppStreamRecordWriter::~AppStreamRecordWriter() {
-  fclose(fp);
-}
-
-void AppStreamRecordWriter::WriteData(std::string_view buffer) {
-  fwrite(buffer.data(), 1, buffer.size(), fp);
-}
-
-AppStreamTranscoder::AppStreamTranscoder(const codec::DecoderOptions& decoderOptions,
-    const codec::FilterOptions& filterOptions, const codec::EncoderOptions& encoderOptions,
-    const codec::WriterOptions& writerOptions, codec::WriterProcessor& processor) {
-  decoder = std::make_unique<codec::Decoder>(decoderOptions);
-  filter = std::make_unique<codec::Filter>(filterOptions);
-  encoder = std::make_unique<codec::Encoder>(encoderOptions);
-  transcoder = std::make_unique<codec::Transcoder>(*decoder, *filter, *encoder);
-  writer = std::make_unique<codec::Writer>(writerOptions, processor);
+AppStreamTranscoder::AppStreamTranscoder(std::unique_ptr<codec::Decoder> decoder, std::unique_ptr<codec::Filter> filter,
+    std::unique_ptr<codec::Encoder> encoder, std::unique_ptr<codec::Transcoder> transcoder,
+    std::unique_ptr<codec::Writer> writer_)
+    : decoder{std::move(decoder)},
+      filter{std::move(filter)},
+      encoder{std::move(encoder)},
+      transcoder{std::move(transcoder)},
+      writer{std::move(writer_)} {
+  writer->Begin();
 }
 
 AppStreamTranscoder::~AppStreamTranscoder() {
-  if (transcoder) {
-    transcoder->Flush(*this);
-  }
+  transcoder->Flush(*this);
+  writer->End();
   transcoder.reset();
   writer.reset();
   decoder.reset();
@@ -54,7 +42,23 @@ AppStreamTranscoderFactory::AppStreamTranscoderFactory(const codec::DecoderOptio
 }
 
 std::unique_ptr<AppStreamTranscoder> AppStreamTranscoderFactory::Create(codec::WriterProcessor& processor) {
-  return std::make_unique<AppStreamTranscoder>(decoderOptions, filterOptions, encoderOptions, writerOptions, processor);
+  auto decoder = std::make_unique<codec::Decoder>(decoderOptions);
+  auto filter = std::make_unique<codec::Filter>(filterOptions);
+  auto encoder = std::make_unique<codec::Encoder>(encoderOptions);
+  auto transcoder = std::make_unique<codec::Transcoder>(*decoder, *filter, *encoder);
+  auto writer = std::make_unique<codec::BufferWriter>(writerOptions, processor);
+  return std::make_unique<AppStreamTranscoder>(
+      std::move(decoder), std::move(filter), std::move(encoder), std::move(transcoder), std::move(writer));
+}
+
+std::unique_ptr<AppStreamTranscoder> AppStreamTranscoderFactory::Create(std::string_view filename) {
+  auto decoder = std::make_unique<codec::Decoder>(decoderOptions);
+  auto filter = std::make_unique<codec::Filter>(filterOptions);
+  auto encoder = std::make_unique<codec::Encoder>(encoderOptions);
+  auto transcoder = std::make_unique<codec::Transcoder>(*decoder, *filter, *encoder);
+  auto writer = std::make_unique<codec::FileWriter>(writerOptions, filename);
+  return std::make_unique<AppStreamTranscoder>(
+      std::move(decoder), std::move(filter), std::move(encoder), std::move(transcoder), std::move(writer));
 }
 
 AppStreamRecorderRunner::AppStreamRecorderRunner(common::EventQueue<AppRecorderEvent>& eventQueue,
@@ -88,13 +92,11 @@ void AppStreamRecorderRunner::Process(std::string_view buffer) {
 
 void AppStreamRecorderRunner::Reset() {
   transcoder.reset();
-  recordWriter.reset();
   if (recorderOptions.saveRecord) {
     recorderStartTime = std::time(nullptr);
     char buf[50];
-    std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.ts", std::localtime(&recorderStartTime));
-    recordWriter = std::make_unique<AppStreamRecordWriter>(buf);
-    transcoder = transcoderFactory.Create(*recordWriter);
+    std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.mp4", std::localtime(&recorderStartTime));
+    transcoder = transcoderFactory.Create(buf);
   }
 }
 

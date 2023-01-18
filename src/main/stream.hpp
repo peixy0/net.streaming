@@ -10,21 +10,10 @@
 
 namespace application {
 
-class AppStreamRecordWriter : public codec::WriterProcessor {
-public:
-  explicit AppStreamRecordWriter(std::string_view);
-  ~AppStreamRecordWriter() override;
-  void WriteData(std::string_view) override;
-
-private:
-  std::string filename;
-  FILE* fp;
-};
-
 class AppStreamTranscoder : public codec::EncodedDataProcessor {
 public:
-  AppStreamTranscoder(const codec::DecoderOptions&, const codec::FilterOptions&, const codec::EncoderOptions&,
-      const codec::WriterOptions&, codec::WriterProcessor&);
+  AppStreamTranscoder(std::unique_ptr<codec::Decoder>, std::unique_ptr<codec::Filter>, std::unique_ptr<codec::Encoder>,
+      std::unique_ptr<codec::Transcoder>, std::unique_ptr<codec::Writer>);
   ~AppStreamTranscoder() override;
   void Process(std::string_view);
   void ProcessEncodedData(AVPacket*) override;
@@ -42,6 +31,7 @@ public:
   AppStreamTranscoderFactory(const codec::DecoderOptions&, const codec::FilterOptions&, const codec::EncoderOptions&,
       const codec::WriterOptions&);
   std::unique_ptr<AppStreamTranscoder> Create(codec::WriterProcessor&);
+  std::unique_ptr<AppStreamTranscoder> Create(std::string_view);
 
 private:
   codec::DecoderOptions decoderOptions;
@@ -81,7 +71,6 @@ private:
   AppStreamTranscoderFactory& transcoderFactory;
 
   std::unique_ptr<AppStreamTranscoder> transcoder;
-  std::unique_ptr<AppStreamRecordWriter> recordWriter;
   std::time_t recorderStartTime;
 };
 

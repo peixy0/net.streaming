@@ -25,7 +25,7 @@ AVPixelFormat Convert(codec::PixelFormat fmt) {
 }
 
 int WriterCallbackHelper(void* writer_, std::uint8_t* buffer, int size) {
-  codec::Writer* writer = static_cast<codec::Writer*>(writer_);
+  codec::BufferWriter* writer = static_cast<codec::BufferWriter*>(writer_);
   const char* p = reinterpret_cast<char*>(buffer);
   writer->WriterCallback({p, p + size});
   return size;
@@ -344,7 +344,7 @@ void Transcoder::Flush(EncodedDataProcessor& processor) {
   encoder.Flush(processor);
 }
 
-Writer::Writer(const WriterOptions& options_, WriterProcessor& processor) : options{options_}, processor{processor} {
+Writer::Writer(const WriterOptions& options) : options{options} {
   int r;
   if ((r = avformat_alloc_output_context2(&formatContext, nullptr, options.format.c_str(), nullptr)) < 0) {
     spdlog::error("codec avformat_alloc_output_context2(): {}", r);
@@ -368,17 +368,6 @@ Writer::Writer(const WriterOptions& options_, WriterProcessor& processor) : opti
   stream->codecpar->height = options.height;
   stream->time_base.num = 1;
   stream->time_base.den = options.framerate;
-  constexpr int writable = 1;
-  buffer = static_cast<std::uint8_t*>(av_malloc(bufferSize));
-  formatContext->pb = avio_alloc_context(buffer, sizeof buffer, writable, this, nullptr, WriterCallbackHelper, nullptr);
-  if (formatContext->pb == nullptr) {
-    spdlog::error("codec avcodec_find_encoder_by_name({})", options.codec);
-    return;
-  }
-  if ((r = avformat_write_header(formatContext, nullptr)) < 0) {
-    spdlog::error("codec avformat_write_header(): {}", r);
-    return;
-  }
   packet = av_packet_alloc();
   if (packet == nullptr) {
     spdlog::error("codec av_packet_alloc()");
@@ -387,11 +376,6 @@ Writer::Writer(const WriterOptions& options_, WriterProcessor& processor) : opti
 }
 
 Writer::~Writer() {
-  if (formatContext and formatContext->pb) {
-    av_write_trailer(formatContext);
-    avio_context_free(&formatContext->pb);
-  }
-  av_free(buffer);
   av_packet_free(&packet);
   avformat_free_context(formatContext);
   formatContext = nullptr;
@@ -406,8 +390,61 @@ void Writer::Process(AVPacket* packet) {
   }
 }
 
-void Writer::WriterCallback(std::string_view buffer) {
+BufferWriter::BufferWriter(const WriterOptions& options, WriterProcessor& processor)
+    : Writer{options}, processor{processor} {
+}
+
+void BufferWriter::Begin() {
+  constexpr int writable = 1;
+  buffer = static_cast<std::uint8_t*>(av_malloc(bufferSize));
+  formatContext->pb = avio_alloc_context(buffer, sizeof buffer, writable, this, nullptr, WriterCallbackHelper, nullptr);
+  if (formatContext->pb == nullptr) {
+    spdlog::error("codec avio_alloc_context()");
+    return;
+  }
+  int r;
+  if ((r = avformat_write_header(formatContext, nullptr)) < 0) {
+    spdlog::error("codec avformat_write_header(): {}", r);
+    return;
+  }
+}
+
+void BufferWriter::End() {
+  if (formatContext and formatContext->pb) {
+    av_write_trailer(formatContext);
+    avio_context_free(&formatContext->pb);
+  }
+  av_free(buffer);
+}
+
+void BufferWriter::WriterCallback(std::string_view buffer) {
   processor.WriteData(buffer);
+}
+
+FileWriter::FileWriter(const WriterOptions& options, std::string_view filename) : Writer{options}, filename{filename} {
+}
+
+void FileWriter::Begin() {
+  int r;
+  if ((r = avio_open2(&formatContext->pb, filename.c_str(), AVIO_FLAG_WRITE, nullptr, nullptr)) < 0) {
+    spdlog::error("codec avio_open2()");
+    return;
+  }
+  if (formatContext->pb == nullptr) {
+    spdlog::error("codec avio_open2()");
+    return;
+  }
+  if ((r = avformat_write_header(formatContext, nullptr)) < 0) {
+    spdlog::error("codec avformat_write_header(): {}", r);
+    return;
+  }
+}
+
+void FileWriter::End() {
+  if (formatContext and formatContext->pb) {
+    av_write_trailer(formatContext);
+    avio_close(formatContext->pb);
+  }
 }
 
 }  // namespace codec

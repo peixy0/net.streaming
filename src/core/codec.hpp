@@ -132,19 +132,44 @@ struct WriterOptions {
 
 class Writer {
 public:
-  Writer(const WriterOptions&, WriterProcessor&);
-  ~Writer();
+  explicit Writer(const WriterOptions&);
+  virtual ~Writer();
+  virtual void Begin() = 0;
+  virtual void End() = 0;
   void Process(AVPacket*);
+
+protected:
+  WriterOptions options;
+  AVFormatContext* formatContext{nullptr};
+
+private:
+  AVStream* stream;
+  AVPacket* packet{nullptr};
+};
+
+class BufferWriter : public Writer {
+public:
+  BufferWriter(const WriterOptions&, WriterProcessor&);
+  ~BufferWriter() override = default;
+  void Begin() override;
+  void End() override;
   void WriterCallback(std::string_view);
 
 private:
-  WriterOptions options;
   WriterProcessor& processor;
-  AVFormatContext* formatContext{nullptr};
-  AVStream* stream;
-  AVPacket* packet{nullptr};
   std::uint8_t* buffer{nullptr};
   int bufferSize{1 << 16};
+};
+
+class FileWriter : public Writer {
+public:
+  FileWriter(const WriterOptions&, std::string_view);
+  ~FileWriter() override = default;
+  void Begin() override;
+  void End() override;
+
+private:
+  std::string filename;
 };
 
 }  // namespace codec
