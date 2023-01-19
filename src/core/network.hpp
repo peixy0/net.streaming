@@ -36,6 +36,7 @@ public:
 
 class TcpProcessorFactory {
 public:
+  virtual ~TcpProcessorFactory() = default;
   virtual std::unique_ptr<TcpProcessor> Create(TcpSender&) const = 0;
 };
 
