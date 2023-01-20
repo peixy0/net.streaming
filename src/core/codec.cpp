@@ -28,7 +28,7 @@ AVPixelFormat ConvertPixFormat(std::string_view fmt) {
 }
 
 int WriterCallbackHelper(void* writer_, std::uint8_t* buffer, int size) {
-  codec::BufferWriter* writer = static_cast<codec::BufferWriter*>(writer_);
+  codec::BufferWriter* writer = reinterpret_cast<codec::BufferWriter*>(writer_);
   const char* p = reinterpret_cast<char*>(buffer);
   writer->WriterCallback({p, p + size});
   return size;
@@ -405,6 +405,8 @@ void BufferWriter::Begin() {
     spdlog::error("codec avio_alloc_context()");
     return;
   }
+  formatContext->flags = AVFMT_FLAG_CUSTOM_IO;
+  formatContext->pb->seekable = 0;
   int r;
   if ((r = avformat_write_header(formatContext, nullptr)) < 0) {
     spdlog::error("codec avformat_write_header(): {}", r);

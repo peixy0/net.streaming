@@ -156,7 +156,7 @@ public:
 private:
   WriterProcessor& processor;
   std::uint8_t* buffer{nullptr};
-  int bufferSize{1 << 16};
+  int bufferSize{32 * 1024};
 };
 
 class FileWriter : public Writer {
