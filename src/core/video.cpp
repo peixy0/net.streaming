@@ -20,16 +20,6 @@ int xioctl(int fd, unsigned long req, T... args) {
   return r;
 }
 
-std::uint32_t convert(video::StreamFormat format) {
-  switch (format) {
-    case video::StreamFormat::MJPEG:
-      return V4L2_PIX_FMT_MJPEG;
-    case video::StreamFormat::YUV422:
-      return V4L2_PIX_FMT_YUV422P;
-  }
-  return V4L2_PIX_FMT_MJPEG;
-}
-
 }  // namespace
 
 namespace video {
@@ -110,7 +100,7 @@ void Stream::SetParameters(const StreamOptions& options) const {
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   fmt.fmt.pix.width = options.width;
   fmt.fmt.pix.height = options.height;
-  fmt.fmt.pix.pixelformat = convert(options.format);
+  fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
   if (xioctl(fd, VIDIOC_S_FMT, &fmt) == -1) {
     spdlog::error("video ioctl(VIDIOC_S_FMT): {}", strerror(errno));
   }

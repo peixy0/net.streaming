@@ -12,6 +12,7 @@ target_link_libraries(
   PRIVATE
   core
   spdlog
+  yaml-cpp
   ${AVCODEC_LIBRARY}
   ${AVUTIL_LIBRARY}
   ${AVFILTER_LIBRARY}

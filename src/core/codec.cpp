@@ -1,5 +1,6 @@
 #include "codec.hpp"
 #include <spdlog/spdlog.h>
+#include <stdexcept>
 
 extern "C" {
 #include <libavfilter/buffersink.h>
@@ -10,18 +11,20 @@ extern "C" {
 
 namespace {
 
-AVPixelFormat Convert(codec::PixelFormat fmt) {
-  switch (fmt) {
-    case codec::PixelFormat::YUVJ422:
-      return AV_PIX_FMT_YUVJ422P;
-    case codec::PixelFormat::YUV422:
-      return AV_PIX_FMT_YUV422P;
-    case codec::PixelFormat::YUV420:
-      return AV_PIX_FMT_YUV420P;
-    case codec::PixelFormat::NV12:
-      return AV_PIX_FMT_NV12;
+AVPixelFormat ConvertPixFormat(std::string_view fmt) {
+  if (fmt == "YUVJ422") {
+    return AV_PIX_FMT_YUVJ422P;
   }
-  return AV_PIX_FMT_YUV420P;
+  if (fmt == "YUV422") {
+    return AV_PIX_FMT_YUV422P;
+  }
+  if (fmt == "YUV420") {
+    return AV_PIX_FMT_YUV420P;
+  }
+  if (fmt == "NV12") {
+    return AV_PIX_FMT_NV12;
+  }
+  throw std::invalid_argument("PIX_FMT not supported");
 }
 
 int WriterCallbackHelper(void* writer_, std::uint8_t* buffer, int size) {
@@ -151,7 +154,7 @@ Filter::Filter(const FilterOptions& options) {
   graph = avfilter_graph_alloc();
   char args[512];
   std::snprintf(args, sizeof args, "video_size=%dx%d:pix_fmt=%d:time_base=1/%d:pixel_aspect=1/1", options.width,
-      options.height, Convert(options.inFormat), options.framerate);
+      options.height, ConvertPixFormat(options.inFormat), options.framerate);
   if ((r = avfilter_graph_create_filter(&contextIn, bufferIn, "in", args, nullptr, graph)) < 0) {
     spdlog::error("codec avfilter_graph_create_filter(in): {}", r);
     return;
@@ -160,7 +163,7 @@ Filter::Filter(const FilterOptions& options) {
     spdlog::error("codec avfilter_graph_create_filter(out): {}", r);
     return;
   }
-  const auto outFmt = Convert(options.outFormat);
+  const auto outFmt = ConvertPixFormat(options.outFormat);
   if ((r = av_opt_set_bin(contextOut, "pix_fmts", reinterpret_cast<const std::uint8_t*>(&outFmt), sizeof outFmt,
            AV_OPT_SEARCH_CHILDREN)) < 0) {
     spdlog::error("codec av_opt_set_bin(): {}", r);
@@ -239,7 +242,7 @@ Encoder::Encoder(const EncoderOptions& options) {
   context->framerate.num = options.framerate;
   context->framerate.den = 1;
   context->gop_size = 12;
-  context->pix_fmt = Convert(options.format);
+  context->pix_fmt = ConvertPixFormat(options.pixfmt);
   context->color_range = AVCOL_RANGE_JPEG;
   av_opt_set(context->priv_data, "preset", "fast", 0);
   if ((r = avcodec_open2(context, codec, nullptr)) < 0) {

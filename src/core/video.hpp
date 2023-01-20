@@ -28,13 +28,7 @@ public:
   virtual ~StreamProcessor() = default;
 };
 
-enum class StreamFormat {
-  MJPEG,
-  YUV422,
-};
-
 struct StreamOptions {
-  StreamFormat format;
   std::uint32_t width;
   std::uint32_t height;
   std::uint32_t framerate;

@@ -13,8 +13,6 @@ namespace codec {
 
 void DisableCodecLogs();
 
-enum class PixelFormat { YUVJ422, YUV422, YUV420, NV12 };
-
 class DecodedDataProcessor {
 public:
   virtual ~DecodedDataProcessor() = default;
@@ -51,8 +49,8 @@ struct FilterOptions {
   int width;
   int height;
   int framerate;
-  PixelFormat inFormat;
-  PixelFormat outFormat;
+  std::string inFormat;
+  std::string outFormat;
   std::string description;
 };
 
@@ -79,11 +77,11 @@ public:
 
 struct EncoderOptions {
   std::string codec;
+  std::string pixfmt;
   int width;
   int height;
   int framerate;
   int bitrate;
-  PixelFormat format;
 };
 
 class Encoder {

@@ -19,8 +19,9 @@ sudo apt install libavcodec-dev libavutil-dev libavfilter-dev libavformat-dev
 git clone https://github.com/peixy0/net.streaming
 cd net.streaming
 mkdir externals
-git clone https://github.com/google/googletest externals/googletest
 git clone https://github.com/gabime/spdlog externals/spdlog
+git clone https://github.com/jbeder/yaml-cpp.git externals/yaml-cpp
+git clone https://github.com/google/googletest externals/googletest
 mkdir build
 cd build
 cmake .. -GNinja -DBUILD_TESTS=ON

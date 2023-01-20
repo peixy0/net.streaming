@@ -1,0 +1,23 @@
+server:
+    address: 0.0.0.0
+    port: 13099
+
+stream:
+    codec: mjpeg
+    pixfmt: YUVJ422
+    width: 1280
+    height: 720
+    framerate: 30
+
+recorder:
+    codec: h264_v4l2m2m
+    pixfmt: YUV420
+    bitrate: 2000000
+    format: mp4
+    maxRecordingTimeInSeconds: 600
+
+livestream:
+    codec: h264_v4l2m2m
+    pixfmt: YUV420
+    bitrate: 2000000
+    format: mpegts

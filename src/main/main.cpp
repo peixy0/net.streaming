@@ -1,4 +1,5 @@
 #include <spdlog/spdlog.h>
+#include <yaml-cpp/yaml.h>
 #include <cstring>
 #include "app.hpp"
 #include "codec.hpp"
@@ -8,79 +9,109 @@
 #include "tcp.hpp"
 #include "video.hpp"
 
-int main(int argc, char* argv[]) {
-  if (argc < 3) {
-    return -1;
-  }
-  auto* host = argv[1];
-  std::uint16_t port = std::atoi(argv[2]);
+int main() {
   spdlog::set_level(spdlog::level::info);
   codec::DisableCodecLogs();
 
+  YAML::Node config = YAML::LoadFile("config.yaml");
+  auto serverAddr = config["server"]["address"].as<std::string>();
+  auto serverPort = config["server"]["port"].as<std::uint16_t>();
+  auto streamCodec = config["stream"]["codec"].as<std::string>();
+  auto streamPixfmt = config["stream"]["pixfmt"].as<std::string>();
+  auto streamWidth = config["stream"]["width"].as<int>();
+  auto streamHeight = config["stream"]["height"].as<int>();
+  auto streamFramerate = config["stream"]["framerate"].as<int>();
+  auto recorderCodec = config["recorder"]["codec"].as<std::string>();
+  auto recorderPixfmt = config["recorder"]["pixfmt"].as<std::string>();
+  auto recorderBitrate = config["recorder"]["bitrate"].as<int>();
+  auto recorderFormat = config["recorder"]["format"].as<std::string>();
+  auto maxRecordingTimeInSeconds = config["recorder"]["maxRecordingTimeInSeconds"].as<int>();
+  auto liveStreamCodec = config["livestream"]["codec"].as<std::string>();
+  auto liveStreamPixfmt = config["livestream"]["pixfmt"].as<std::string>();
+  auto liveStreamBitrate = config["livestream"]["bitrate"].as<int>();
+  auto liveStreamFormat = config["livestream"]["format"].as<std::string>();
+
   application::AppStreamRecorderOptions streamRecorderOptions;
-  streamRecorderOptions.maxRecordingTimeInSeconds = 10 * 60;
+  streamRecorderOptions.maxRecordingTimeInSeconds = maxRecordingTimeInSeconds;
   streamRecorderOptions.saveRecord = false;
 
   video::StreamOptions streamOptions;
-  streamOptions.format = video::StreamFormat::MJPEG;
-  streamOptions.width = 1280;
-  streamOptions.height = 720;
-  streamOptions.framerate = 30;
+  streamOptions.width = streamWidth;
+  streamOptions.height = streamHeight;
+  streamOptions.framerate = streamFramerate;
 
   codec::DecoderOptions decoderOptions;
-  decoderOptions.codec = "mjpeg_qsv";
+  decoderOptions.codec = streamCodec;
 
-  codec::FilterOptions filterOptions;
-  filterOptions.width = streamOptions.width;
-  filterOptions.height = streamOptions.height;
-  filterOptions.framerate = streamOptions.framerate;
-  filterOptions.inFormat = codec::PixelFormat::NV12;
-  filterOptions.outFormat = codec::PixelFormat::NV12;
-  filterOptions.description =
+  codec::FilterOptions recorderFilterOptions;
+  recorderFilterOptions.width = streamOptions.width;
+  recorderFilterOptions.height = streamOptions.height;
+  recorderFilterOptions.framerate = streamOptions.framerate;
+  recorderFilterOptions.inFormat = streamPixfmt;
+  recorderFilterOptions.outFormat = recorderPixfmt;
+  recorderFilterOptions.description =
       "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
       ":text='%{localtime}':fontcolor=yellow:x=10:y=10";
 
-  codec::EncoderOptions encoderOptions;
-  encoderOptions.format = filterOptions.outFormat;
-  encoderOptions.codec = "hevc_qsv";
-  encoderOptions.width = filterOptions.width;
-  encoderOptions.height = filterOptions.height;
-  encoderOptions.framerate = filterOptions.framerate;
-  encoderOptions.bitrate = 2000000;
+  codec::EncoderOptions recorderEncoderOptions;
+  recorderEncoderOptions.codec = recorderCodec;
+  recorderEncoderOptions.pixfmt = recorderFilterOptions.outFormat;
+  recorderEncoderOptions.width = recorderFilterOptions.width;
+  recorderEncoderOptions.height = recorderFilterOptions.height;
+  recorderEncoderOptions.framerate = recorderFilterOptions.framerate;
+  recorderEncoderOptions.bitrate = recorderBitrate;
 
   codec::WriterOptions recorderWriterOptions;
-  recorderWriterOptions.format = "mp4";
-  recorderWriterOptions.codec = encoderOptions.codec;
-  recorderWriterOptions.width = encoderOptions.width;
-  recorderWriterOptions.height = encoderOptions.height;
-  recorderWriterOptions.framerate = encoderOptions.framerate;
-  recorderWriterOptions.bitrate = encoderOptions.bitrate;
+  recorderWriterOptions.format = recorderFormat;
+  recorderWriterOptions.codec = recorderEncoderOptions.codec;
+  recorderWriterOptions.width = recorderEncoderOptions.width;
+  recorderWriterOptions.height = recorderEncoderOptions.height;
+  recorderWriterOptions.framerate = recorderEncoderOptions.framerate;
+  recorderWriterOptions.bitrate = recorderEncoderOptions.bitrate;
 
-  codec::WriterOptions liveWriterOptions;
-  liveWriterOptions.format = "mpegts";
-  liveWriterOptions.codec = encoderOptions.codec;
-  liveWriterOptions.width = encoderOptions.width;
-  liveWriterOptions.height = encoderOptions.height;
-  liveWriterOptions.framerate = encoderOptions.framerate;
-  liveWriterOptions.bitrate = encoderOptions.bitrate;
+  codec::FilterOptions liveStreamFilterOptions;
+  liveStreamFilterOptions.width = streamOptions.width;
+  liveStreamFilterOptions.height = streamOptions.height;
+  liveStreamFilterOptions.framerate = streamOptions.framerate;
+  liveStreamFilterOptions.inFormat = streamPixfmt;
+  liveStreamFilterOptions.outFormat = liveStreamPixfmt;
+  liveStreamFilterOptions.description =
+      "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+      ":text='%{localtime}':fontcolor=yellow:x=10:y=10";
+
+  codec::EncoderOptions liveStreamEncoderOptions;
+  liveStreamEncoderOptions.codec = liveStreamCodec;
+  liveStreamEncoderOptions.pixfmt = liveStreamFilterOptions.outFormat;
+  liveStreamEncoderOptions.width = liveStreamFilterOptions.width;
+  liveStreamEncoderOptions.height = liveStreamFilterOptions.height;
+  liveStreamEncoderOptions.framerate = liveStreamFilterOptions.framerate;
+  liveStreamEncoderOptions.bitrate = liveStreamBitrate;
+
+  codec::WriterOptions liveStreamWriterOptions;
+  liveStreamWriterOptions.format = liveStreamFormat;
+  liveStreamWriterOptions.codec = liveStreamEncoderOptions.codec;
+  liveStreamWriterOptions.width = liveStreamEncoderOptions.width;
+  liveStreamWriterOptions.height = liveStreamEncoderOptions.height;
+  liveStreamWriterOptions.framerate = liveStreamEncoderOptions.framerate;
+  liveStreamWriterOptions.bitrate = liveStreamEncoderOptions.bitrate;
 
   application::AppStreamDistributer mjpegDistributer;
   application::AppStreamCapturerRunner capturerRunner{streamOptions, mjpegDistributer};
   capturerRunner.Run();
 
-  common::ConcreteEventQueue<application::AppRecorderEvent> streamProcessorEventQueue;
+  common::ConcreteEventQueue<application::AppRecorderEvent> recorderEventQueue;
   application::AppStreamTranscoderFactory recorderTranscoderFactory{
-      decoderOptions, filterOptions, encoderOptions, recorderWriterOptions};
+      decoderOptions, recorderFilterOptions, recorderEncoderOptions, recorderWriterOptions};
   application::AppStreamRecorderRunner recorderRunner{
-      streamProcessorEventQueue, streamRecorderOptions, recorderTranscoderFactory};
+      recorderEventQueue, streamRecorderOptions, recorderTranscoderFactory};
   recorderRunner.Run();
 
   application::AppStreamSnapshotSaver snapshotSaver{mjpegDistributer};
-  application::AppStreamRecorderController streamRecorderController{mjpegDistributer, streamProcessorEventQueue};
-  application::AppStreamTranscoderFactory liveTranscoderFactory{
-      decoderOptions, filterOptions, encoderOptions, liveWriterOptions};
+  application::AppStreamRecorderController recorderController{mjpegDistributer, recorderEventQueue};
+  application::AppStreamTranscoderFactory liveStreamTranscoderFactory{
+      decoderOptions, liveStreamFilterOptions, liveStreamEncoderOptions, liveStreamWriterOptions};
   application::AppLayerFactory appFactory{
-      mjpegDistributer, snapshotSaver, streamRecorderController, liveTranscoderFactory};
+      mjpegDistributer, snapshotSaver, recorderController, liveStreamTranscoderFactory};
 
   network::HttpOptions httpOptions;
   httpOptions.maxPayloadSize = 1 << 20;
@@ -88,7 +119,7 @@ int main(int argc, char* argv[]) {
 
   network::TcpOptions tcpOptions;
   tcpOptions.maxBufferedSize = 0;
-  network::Tcp4Layer tcp{host, port, tcpOptions, httpLayerFactory};
+  network::Tcp4Layer tcp{serverAddr, serverPort, tcpOptions, httpLayerFactory};
   tcp.Start();
 
   return 0;

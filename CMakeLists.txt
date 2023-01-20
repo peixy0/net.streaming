@@ -32,6 +32,10 @@ if (BUILD_WITH_MEMORY_SANITIZER)
 endif()
 
 add_subdirectory(externals/spdlog)
+set(YAML_CPP_BUILD_TOOLS OFF)
+set(YAML_CPP_FORMAT_SOURCE OFF)
+set(YAML_CPP_BUILD_TESTS OFF)
+add_subdirectory(externals/yaml-cpp)
 
 project(
   net.streaming

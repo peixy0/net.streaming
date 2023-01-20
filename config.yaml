@@ -1,0 +1,23 @@
+server:
+    address: 0.0.0.0
+    port: 13099
+
+stream:
+    codec: mjpeg_qsv
+    pixfmt: NV12
+    width: 1280
+    height: 720
+    framerate: 30
+
+recorder:
+    codec: h264_qsv
+    pixfmt: NV12
+    bitrate: 2000000
+    format: mp4
+    maxRecordingTimeInSeconds: 600
+
+livestream:
+    codec: h264_qsv
+    pixfmt: NV12
+    bitrate: 2000000
+    format: mpegts
