@@ -9,6 +9,17 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+namespace {
+
+struct TrySendOperation {
+  auto operator()(auto& op) {
+    op.Send();
+    return op.Done();
+  }
+};
+
+}  // namespace
+
 namespace network {
 
 TcpSendBuffer::TcpSendBuffer(int peer, std::string_view buffer) : peer{peer}, buffer{buffer}, size{buffer.size()} {
@@ -82,8 +93,7 @@ void ConcreteTcpSender::SendBuffered() {
   std::lock_guard lock{senderMut};
   while (not buffered.empty()) {
     auto& op = buffered.front();
-    op->Send();
-    if (not op->Done()) {
+    if (not std::visit(TrySendOperation{}, op)) {
       return;
     }
     buffered.pop_front();
@@ -96,7 +106,8 @@ void ConcreteTcpSender::Send(std::string_view buf) {
   if (maxBufferedSize != 0 and buffered.size() >= maxBufferedSize) {
     return;
   }
-  buffered.emplace_back(std::make_unique<TcpSendBuffer>(peer, buf));
+  TcpSendBuffer op{peer, buf};
+  buffered.emplace_back(std::move(op));
   MarkPending();
 }
 
@@ -105,7 +116,8 @@ void ConcreteTcpSender::Send(os::File file) {
   if (maxBufferedSize != 0 and buffered.size() >= maxBufferedSize) {
     return;
   }
-  buffered.emplace_back(std::make_unique<TcpSendFile>(peer, std::move(file)));
+  TcpSendFile op{peer, std::move(file)};
+  buffered.emplace_back(std::move(op));
   MarkPending();
 }
 

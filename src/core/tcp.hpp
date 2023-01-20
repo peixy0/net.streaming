@@ -2,22 +2,21 @@
 #include <deque>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include "network.hpp"
 
 namespace network {
 
-class TcpSendOp {
-public:
-  virtual ~TcpSendOp() = default;
-  virtual void Send() = 0;
-  virtual bool Done() const = 0;
-};
-
-class TcpSendBuffer : public TcpSendOp {
+class TcpSendBuffer {
 public:
   TcpSendBuffer(int, std::string_view);
-  void Send() override;
-  bool Done() const override;
+  TcpSendBuffer(TcpSendBuffer&) = delete;
+  TcpSendBuffer(TcpSendBuffer&&) = default;
+  TcpSendBuffer& operator=(TcpSendBuffer&) = delete;
+  TcpSendBuffer& operator=(TcpSendBuffer&&) = default;
+  ~TcpSendBuffer() = default;
+  void Send();
+  bool Done() const;
 
 private:
   int peer;
@@ -25,17 +24,24 @@ private:
   size_t size{0};
 };
 
-class TcpSendFile : public TcpSendOp {
+class TcpSendFile {
 public:
   TcpSendFile(int, os::File);
-  void Send() override;
-  bool Done() const override;
+  TcpSendFile(TcpSendFile&) = delete;
+  TcpSendFile(TcpSendFile&&) = default;
+  TcpSendFile& operator=(TcpSendFile&) = delete;
+  TcpSendFile& operator=(TcpSendFile&&) = default;
+  ~TcpSendFile() = default;
+  void Send();
+  bool Done() const;
 
 private:
   int peer;
   os::File file;
   size_t size{0};
 };
+
+using TcpSendOperation = std::variant<TcpSendBuffer, TcpSendFile>;
 
 class ConcreteTcpSender : public TcpSender {
 public:
@@ -58,7 +64,7 @@ private:
   int peer;
   size_t maxBufferedSize;
   TcpSenderSupervisor& supervisor;
-  std::deque<std::unique_ptr<TcpSendOp>> buffered;
+  std::deque<TcpSendOperation> buffered;
   bool pending{false};
   std::mutex senderMut;
 };
