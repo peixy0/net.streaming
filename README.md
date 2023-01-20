@@ -1,16 +1,11 @@
 # net.streaming
 
-Simple IPCam written in modern C++
+Simple IPCam written in modern C++.
 
 # note
-To use on Raspberry Pi or other devices with various hardware codec support, edit options in src/main/main.cpp.
 
-Example:
-
-```
--  encoderOptions.codec = "hevc_qsv";
-+  encoderOptions.codec = "h264_v4l2m2m";
-```
+Edit config.yaml to enable hardware acceleration for your own setup.
+Refer to config-rpi.yaml for example configurations for Raspberry Pi.
 
 # build
 
