@@ -30,23 +30,23 @@ private:
   AppStreamDistributer& mjpegDistributer;
 };
 
-class AppStreamMpegTsSender : public AppStreamReceiver, public codec::WriterProcessor {
+class AppEncodedStreamSender : public AppStreamReceiver, public codec::WriterProcessor {
 public:
-  AppStreamMpegTsSender(network::HttpSender&, AppStreamDistributer&, AppStreamTranscoderFactory&);
-  ~AppStreamMpegTsSender() override;
+  AppEncodedStreamSender(network::HttpSender&, AppStreamDistributer&, AppStreamTranscoderFactory&);
+  ~AppEncodedStreamSender() override;
   void Notify(std::string_view) override;
   void WriteData(std::string_view) override;
   void RunTranscoder();
   void RunSender();
 
 private:
-  network::HttpSender& sender;
-  AppStreamDistributer& mjpegDistributer;
-  std::unique_ptr<AppStreamTranscoder> transcoder;
   common::ConcreteEventQueue<std::optional<std::string>> transcoderQueue;
   common::ConcreteEventQueue<std::optional<std::string>> senderQueue;
   std::thread transcoderThread;
   std::thread senderThread;
+  network::HttpSender& sender;
+  AppStreamDistributer& mjpegDistributer;
+  std::unique_ptr<AppStreamTranscoder> transcoder;
 };
 
 class AppStreamSnapshotSaver : public AppStreamReceiver {

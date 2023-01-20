@@ -43,18 +43,17 @@ void AppHighFrameRateMjpegSender::Notify(std::string_view buffer) {
   return sender.Send(std::move(resp));
 }
 
-AppStreamMpegTsSender::AppStreamMpegTsSender(
+AppEncodedStreamSender::AppEncodedStreamSender(
     network::HttpSender& sender, AppStreamDistributer& mjpegDistributer, AppStreamTranscoderFactory& transcoderFactory)
     : sender{sender}, mjpegDistributer{mjpegDistributer}, transcoder{transcoderFactory.Create(*this)} {
   network::ChunkedHeaderHttpResponse resp;
-  resp.headers.emplace("Content-Type", "video/mpegts");
   sender.Send(std::move(resp));
   transcoderThread = std::thread([this] { RunTranscoder(); });
   senderThread = std::thread([this] { RunSender(); });
   mjpegDistributer.AddSubscriber(this);
 }
 
-AppStreamMpegTsSender::~AppStreamMpegTsSender() {
+AppEncodedStreamSender::~AppEncodedStreamSender() {
   mjpegDistributer.RemoveSubscriber(this);
   transcoderQueue.Push(std::nullopt);
   senderQueue.Push(std::nullopt);
@@ -63,15 +62,15 @@ AppStreamMpegTsSender::~AppStreamMpegTsSender() {
   transcoder.reset();
 }
 
-void AppStreamMpegTsSender::Notify(std::string_view buffer) {
+void AppEncodedStreamSender::Notify(std::string_view buffer) {
   transcoderQueue.Push(std::make_optional<std::string>(buffer));
 }
 
-void AppStreamMpegTsSender::WriteData(std::string_view buffer) {
+void AppEncodedStreamSender::WriteData(std::string_view buffer) {
   senderQueue.Push(std::make_optional<std::string>(buffer));
 }
 
-void AppStreamMpegTsSender::RunTranscoder() {
+void AppEncodedStreamSender::RunTranscoder() {
   std::optional<std::string> bufferOpt;
   while ((bufferOpt = transcoderQueue.Pop()) != std::nullopt) {
     if (transcoderQueue.Size() > 0) {
@@ -81,7 +80,7 @@ void AppStreamMpegTsSender::RunTranscoder() {
   }
 }
 
-void AppStreamMpegTsSender::RunSender() {
+void AppEncodedStreamSender::RunSender() {
   std::optional<std::string> bufferOpt;
   std::string buffer;
   constexpr int batchedBufferSize = 1 << 18;
@@ -189,8 +188,8 @@ void AppLayer::Process(network::HttpRequest&& req) {
     streamSender = std::make_unique<AppHighFrameRateMjpegSender>(sender, mjpegDistributer);
     return;
   }
-  if (req.uri == "/mpegts") {
-    streamSender = std::make_unique<AppStreamMpegTsSender>(sender, mjpegDistributer, transcoderFactory);
+  if (req.uri == "/encoded") {
+    streamSender = std::make_unique<AppEncodedStreamSender>(sender, mjpegDistributer, transcoderFactory);
     return;
   }
   if (req.uri == "/recording") {

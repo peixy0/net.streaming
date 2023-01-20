@@ -26,10 +26,10 @@ int main() {
   auto recorderBitrate = config["recorder"]["bitrate"].as<int>();
   auto recorderFormat = config["recorder"]["format"].as<std::string>();
   auto maxRecordingTimeInSeconds = config["recorder"]["maxRecordingTimeInSeconds"].as<int>();
-  auto liveStreamCodec = config["livestream"]["codec"].as<std::string>();
-  auto liveStreamPixfmt = config["livestream"]["pixfmt"].as<std::string>();
-  auto liveStreamBitrate = config["livestream"]["bitrate"].as<int>();
-  auto liveStreamFormat = config["livestream"]["format"].as<std::string>();
+  auto encodedStreamCodec = config["encodedstream"]["codec"].as<std::string>();
+  auto encodedStreamPixfmt = config["encodedstream"]["pixfmt"].as<std::string>();
+  auto encodedStreamBitrate = config["encodedstream"]["bitrate"].as<int>();
+  auto encodedStreamFormat = config["encodedstream"]["format"].as<std::string>();
 
   application::AppStreamRecorderOptions streamRecorderOptions;
   streamRecorderOptions.maxRecordingTimeInSeconds = maxRecordingTimeInSeconds;
@@ -69,31 +69,31 @@ int main() {
   recorderWriterOptions.framerate = recorderEncoderOptions.framerate;
   recorderWriterOptions.bitrate = recorderEncoderOptions.bitrate;
 
-  codec::FilterOptions liveStreamFilterOptions;
-  liveStreamFilterOptions.width = streamOptions.width;
-  liveStreamFilterOptions.height = streamOptions.height;
-  liveStreamFilterOptions.framerate = streamOptions.framerate;
-  liveStreamFilterOptions.inFormat = streamPixfmt;
-  liveStreamFilterOptions.outFormat = liveStreamPixfmt;
-  liveStreamFilterOptions.description =
+  codec::FilterOptions encodedStreamFilterOptions;
+  encodedStreamFilterOptions.width = streamOptions.width;
+  encodedStreamFilterOptions.height = streamOptions.height;
+  encodedStreamFilterOptions.framerate = streamOptions.framerate;
+  encodedStreamFilterOptions.inFormat = streamPixfmt;
+  encodedStreamFilterOptions.outFormat = encodedStreamPixfmt;
+  encodedStreamFilterOptions.description =
       "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
       ":text='%{localtime}':fontcolor=yellow:x=10:y=10";
 
-  codec::EncoderOptions liveStreamEncoderOptions;
-  liveStreamEncoderOptions.codec = liveStreamCodec;
-  liveStreamEncoderOptions.pixfmt = liveStreamFilterOptions.outFormat;
-  liveStreamEncoderOptions.width = liveStreamFilterOptions.width;
-  liveStreamEncoderOptions.height = liveStreamFilterOptions.height;
-  liveStreamEncoderOptions.framerate = liveStreamFilterOptions.framerate;
-  liveStreamEncoderOptions.bitrate = liveStreamBitrate;
+  codec::EncoderOptions encodedStreamEncoderOptions;
+  encodedStreamEncoderOptions.codec = encodedStreamCodec;
+  encodedStreamEncoderOptions.pixfmt = encodedStreamFilterOptions.outFormat;
+  encodedStreamEncoderOptions.width = encodedStreamFilterOptions.width;
+  encodedStreamEncoderOptions.height = encodedStreamFilterOptions.height;
+  encodedStreamEncoderOptions.framerate = encodedStreamFilterOptions.framerate;
+  encodedStreamEncoderOptions.bitrate = encodedStreamBitrate;
 
-  codec::WriterOptions liveStreamWriterOptions;
-  liveStreamWriterOptions.format = liveStreamFormat;
-  liveStreamWriterOptions.codec = liveStreamEncoderOptions.codec;
-  liveStreamWriterOptions.width = liveStreamEncoderOptions.width;
-  liveStreamWriterOptions.height = liveStreamEncoderOptions.height;
-  liveStreamWriterOptions.framerate = liveStreamEncoderOptions.framerate;
-  liveStreamWriterOptions.bitrate = liveStreamEncoderOptions.bitrate;
+  codec::WriterOptions encodedStreamWriterOptions;
+  encodedStreamWriterOptions.format = encodedStreamFormat;
+  encodedStreamWriterOptions.codec = encodedStreamEncoderOptions.codec;
+  encodedStreamWriterOptions.width = encodedStreamEncoderOptions.width;
+  encodedStreamWriterOptions.height = encodedStreamEncoderOptions.height;
+  encodedStreamWriterOptions.framerate = encodedStreamEncoderOptions.framerate;
+  encodedStreamWriterOptions.bitrate = encodedStreamEncoderOptions.bitrate;
 
   application::AppStreamDistributer mjpegDistributer;
   application::AppStreamCapturerRunner capturerRunner{streamOptions, mjpegDistributer};
@@ -108,10 +108,10 @@ int main() {
 
   application::AppStreamSnapshotSaver snapshotSaver{mjpegDistributer};
   application::AppStreamRecorderController recorderController{mjpegDistributer, recorderEventQueue};
-  application::AppStreamTranscoderFactory liveStreamTranscoderFactory{
-      decoderOptions, liveStreamFilterOptions, liveStreamEncoderOptions, liveStreamWriterOptions};
+  application::AppStreamTranscoderFactory encodedStreamTranscoderFactory{
+      decoderOptions, encodedStreamFilterOptions, encodedStreamEncoderOptions, encodedStreamWriterOptions};
   application::AppLayerFactory appFactory{
-      mjpegDistributer, snapshotSaver, recorderController, liveStreamTranscoderFactory};
+      mjpegDistributer, snapshotSaver, recorderController, encodedStreamTranscoderFactory};
 
   network::HttpOptions httpOptions;
   httpOptions.maxPayloadSize = 1 << 20;
