@@ -1,6 +1,6 @@
 #include <spdlog/spdlog.h>
 #include <yaml-cpp/yaml.h>
-#include <cstring>
+#include <thread>
 #include "app.hpp"
 #include "codec.hpp"
 #include "event_queue.hpp"
@@ -119,8 +119,17 @@ int main() {
 
   network::TcpOptions tcpOptions;
   tcpOptions.maxBufferedSize = 0;
-  network::Tcp4Layer tcp{serverAddr, serverPort, tcpOptions, httpLayerFactory};
-  tcp.Start();
+  std::vector<std::thread> workers;
+  const int nWorkers = std::thread::hardware_concurrency() + 1;
+  for (int i = 0; i < nWorkers; i++) {
+    workers.emplace_back([&serverAddr, &serverPort, &tcpOptions, &httpLayerFactory]() {
+      network::Tcp4Layer tcp{serverAddr, serverPort, tcpOptions, httpLayerFactory};
+      tcp.Start();
+    });
+  }
+  for (int i = 0; i < nWorkers; i++) {
+    workers[i].join();
+  }
 
   return 0;
 }

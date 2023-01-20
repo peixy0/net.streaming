@@ -336,7 +336,7 @@ int Tcp4Layer::CreateSocket() {
     spdlog::error("tcp socket(): {}", strerror(errno));
     goto out;
   }
-  if ((r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one)) < 0) {
+  if ((r = setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &one, sizeof one)) < 0) {
     spdlog::error("tcp setsockopt(SO_REUSEADDR): {}", strerror(errno));
     goto out;
   }
