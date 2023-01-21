@@ -352,7 +352,7 @@ int Tcp4Layer::CreateSocket() {
     goto out;
   }
 
-  if ((r = listen(s, 0)) < 0) {
+  if ((r = listen(s, 8)) < 0) {
     spdlog::error("tcp listen(): {}", strerror(errno));
     goto out;
   }
