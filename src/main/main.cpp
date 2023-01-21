@@ -10,7 +10,7 @@
 #include "video.hpp"
 
 int main() {
-  spdlog::set_level(spdlog::level::info);
+  spdlog::set_level(spdlog::level::off);
   codec::DisableCodecLogs();
 
   YAML::Node config = YAML::LoadFile("config.yaml");
@@ -23,13 +23,17 @@ int main() {
   auto streamFramerate = config["stream"]["framerate"].as<int>();
   auto recorderCodec = config["recorder"]["codec"].as<std::string>();
   auto recorderPixfmt = config["recorder"]["pixfmt"].as<std::string>();
-  auto recorderBitrate = config["recorder"]["bitrate"].as<int>();
   auto recorderFormat = config["recorder"]["format"].as<std::string>();
+  auto recorderWidth = config["recorder"]["width"].as<int>();
+  auto recorderHeight = config["recorder"]["height"].as<int>();
+  auto recorderBitrate = config["recorder"]["bitrate"].as<int>();
   auto maxRecordingTimeInSeconds = config["recorder"]["maxRecordingTimeInSeconds"].as<int>();
   auto encodedStreamCodec = config["encodedstream"]["codec"].as<std::string>();
   auto encodedStreamPixfmt = config["encodedstream"]["pixfmt"].as<std::string>();
-  auto encodedStreamBitrate = config["encodedstream"]["bitrate"].as<int>();
   auto encodedStreamFormat = config["encodedstream"]["format"].as<std::string>();
+  auto encodedStreamWidth = config["encodedstream"]["width"].as<int>();
+  auto encodedStreamHeight = config["encodedstream"]["height"].as<int>();
+  auto encodedStreamBitrate = config["encodedstream"]["bitrate"].as<int>();
 
   application::AppStreamRecorderOptions streamRecorderOptions;
   streamRecorderOptions.maxRecordingTimeInSeconds = maxRecordingTimeInSeconds;
@@ -56,8 +60,8 @@ int main() {
   codec::EncoderOptions recorderEncoderOptions;
   recorderEncoderOptions.codec = recorderCodec;
   recorderEncoderOptions.pixfmt = recorderFilterOptions.outFormat;
-  recorderEncoderOptions.width = recorderFilterOptions.width;
-  recorderEncoderOptions.height = recorderFilterOptions.height;
+  recorderEncoderOptions.width = recorderWidth;
+  recorderEncoderOptions.height = recorderHeight;
   recorderEncoderOptions.framerate = recorderFilterOptions.framerate;
   recorderEncoderOptions.bitrate = recorderBitrate;
 
@@ -82,8 +86,8 @@ int main() {
   codec::EncoderOptions encodedStreamEncoderOptions;
   encodedStreamEncoderOptions.codec = encodedStreamCodec;
   encodedStreamEncoderOptions.pixfmt = encodedStreamFilterOptions.outFormat;
-  encodedStreamEncoderOptions.width = encodedStreamFilterOptions.width;
-  encodedStreamEncoderOptions.height = encodedStreamFilterOptions.height;
+  encodedStreamEncoderOptions.width = encodedStreamWidth;
+  encodedStreamEncoderOptions.height = encodedStreamHeight;
   encodedStreamEncoderOptions.framerate = encodedStreamFilterOptions.framerate;
   encodedStreamEncoderOptions.bitrate = encodedStreamBitrate;
 

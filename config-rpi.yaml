@@ -12,12 +12,16 @@ stream:
 recorder:
     codec: h264_v4l2m2m
     pixfmt: YUV420
-    bitrate: 2000000
     format: mp4
+    width: 1280
+    height: 720
+    bitrate: 2000000
     maxRecordingTimeInSeconds: 600
 
 encodedstream:
     codec: h264_v4l2m2m
     pixfmt: YUV420
-    bitrate: 2000000
     format: mpegts
+    width: 1280
+    height: 720
+    bitrate: 2000000
