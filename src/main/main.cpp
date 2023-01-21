@@ -121,13 +121,11 @@ int main() {
   httpOptions.maxPayloadSize = 1 << 20;
   network::HttpLayerFactory httpLayerFactory{httpOptions, appFactory};
 
-  network::TcpOptions tcpOptions;
-  tcpOptions.maxBufferedSize = 0;
   std::vector<std::thread> workers;
   const int nWorkers = std::thread::hardware_concurrency() + 1;
   for (int i = 0; i < nWorkers; i++) {
-    workers.emplace_back([&serverAddr, &serverPort, &tcpOptions, &httpLayerFactory]() {
-      network::Tcp4Layer tcp{serverAddr, serverPort, tcpOptions, httpLayerFactory};
+    workers.emplace_back([&serverAddr, &serverPort, &httpLayerFactory]() {
+      network::Tcp4Layer tcp{serverAddr, serverPort, httpLayerFactory};
       tcp.Start();
     });
   }

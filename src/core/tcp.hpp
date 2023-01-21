@@ -45,7 +45,7 @@ using TcpSendOperation = std::variant<TcpSendBuffer, TcpSendFile>;
 
 class ConcreteTcpSender : public TcpSender {
 public:
-  ConcreteTcpSender(int, size_t, TcpSenderSupervisor&);
+  ConcreteTcpSender(int, TcpSenderSupervisor&);
   ConcreteTcpSender(const ConcreteTcpSender&) = delete;
   ConcreteTcpSender(ConcreteTcpSender&&) = delete;
   ConcreteTcpSender& operator=(const ConcreteTcpSender&) = delete;
@@ -62,7 +62,6 @@ private:
   void UnmarkPending();
 
   int peer;
-  size_t maxBufferedSize;
   TcpSenderSupervisor& supervisor;
   std::deque<TcpSendOperation> buffered;
   bool pending{false};
@@ -89,7 +88,7 @@ private:
 
 class TcpLayer : public TcpSenderSupervisor {
 public:
-  explicit TcpLayer(const TcpOptions&, TcpProcessorFactory&);
+  explicit TcpLayer(TcpProcessorFactory&);
   TcpLayer(const TcpLayer&) = delete;
   TcpLayer(TcpLayer&&) = delete;
   TcpLayer& operator=(const TcpLayer&) = delete;
@@ -114,9 +113,7 @@ private:
   void PurgeExpiredConnections();
   int FindMostRecentTimeout() const;
 
-  TcpOptions options;
   TcpProcessorFactory& receiverFactory;
-
   int localDescriptor{-1};
   int epollDescriptor{-1};
   std::unordered_map<int, TcpConnectionContext> connections;
@@ -124,7 +121,7 @@ private:
 
 class Tcp4Layer : public TcpLayer {
 public:
-  Tcp4Layer(std::string_view, std::uint16_t, const TcpOptions&, TcpProcessorFactory&);
+  Tcp4Layer(std::string_view, std::uint16_t, TcpProcessorFactory&);
 
 protected:
   int CreateSocket() override;

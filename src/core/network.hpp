@@ -8,10 +8,6 @@
 
 namespace network {
 
-struct TcpOptions {
-  size_t maxBufferedSize;
-};
-
 class TcpSenderSupervisor {
 public:
   virtual ~TcpSenderSupervisor() = default;

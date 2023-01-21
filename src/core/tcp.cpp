@@ -76,8 +76,7 @@ bool TcpSendFile::Done() const {
   return size == 0;
 }
 
-ConcreteTcpSender::ConcreteTcpSender(int s, size_t maxBufferedSize, TcpSenderSupervisor& supervisor)
-    : peer{s}, maxBufferedSize{maxBufferedSize}, supervisor{supervisor} {
+ConcreteTcpSender::ConcreteTcpSender(int s, TcpSenderSupervisor& supervisor) : peer{s}, supervisor{supervisor} {
   int flag = 0;
   int r = setsockopt(peer, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof flag);
   if (r < 0) {
@@ -103,9 +102,6 @@ void ConcreteTcpSender::SendBuffered() {
 
 void ConcreteTcpSender::Send(std::string_view buf) {
   std::lock_guard lock{senderMut};
-  if (maxBufferedSize != 0 and buffered.size() >= maxBufferedSize) {
-    return;
-  }
   TcpSendBuffer op{peer, buf};
   buffered.emplace_back(std::move(op));
   MarkPending();
@@ -113,9 +109,6 @@ void ConcreteTcpSender::Send(std::string_view buf) {
 
 void ConcreteTcpSender::Send(os::File file) {
   std::lock_guard lock{senderMut};
-  if (maxBufferedSize != 0 and buffered.size() >= maxBufferedSize) {
-    return;
-  }
   TcpSendFile op{peer, std::move(file)};
   buffered.emplace_back(std::move(op));
   MarkPending();
@@ -165,8 +158,7 @@ TcpSender& TcpConnectionContext::GetSender() {
   return *sender;
 }
 
-TcpLayer::TcpLayer(const TcpOptions& options, TcpProcessorFactory& receiverFactory)
-    : options{options}, receiverFactory{receiverFactory} {
+TcpLayer::TcpLayer(TcpProcessorFactory& receiverFactory) : receiverFactory{receiverFactory} {
 }
 
 TcpLayer::~TcpLayer() {
@@ -276,7 +268,7 @@ void TcpLayer::SetupPeer() {
   SetNonBlocking(s);
   MarkReceiverPending(s);
 
-  auto sender = std::make_unique<ConcreteTcpSender>(s, options.maxBufferedSize, *this);
+  auto sender = std::make_unique<ConcreteTcpSender>(s, *this);
   auto receiver = receiverFactory.Create(*sender);
   connections.try_emplace(s, s, std::move(receiver), std::move(sender));
 }
@@ -323,9 +315,8 @@ void TcpLayer::SendToPeer(int peerDescriptor) {
   context.GetSender().SendBuffered();
 }
 
-Tcp4Layer::Tcp4Layer(
-    std::string_view host, std::uint16_t port, const TcpOptions& options, TcpProcessorFactory& receiverFactory)
-    : TcpLayer{options, receiverFactory}, host{host}, port{port} {
+Tcp4Layer::Tcp4Layer(std::string_view host, std::uint16_t port, TcpProcessorFactory& receiverFactory)
+    : TcpLayer{receiverFactory}, host{host}, port{port} {
 }
 
 int Tcp4Layer::CreateSocket() {
