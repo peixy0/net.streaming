@@ -48,8 +48,8 @@ int main() {
   decoderOptions.codec = streamCodec;
 
   codec::FilterOptions recorderFilterOptions;
-  recorderFilterOptions.width = streamOptions.width;
-  recorderFilterOptions.height = streamOptions.height;
+  recorderFilterOptions.width = recorderWidth;
+  recorderFilterOptions.height = recorderHeight;
   recorderFilterOptions.framerate = streamOptions.framerate;
   recorderFilterOptions.inFormat = streamPixfmt;
   recorderFilterOptions.outFormat = recorderPixfmt;
@@ -60,8 +60,8 @@ int main() {
   codec::EncoderOptions recorderEncoderOptions;
   recorderEncoderOptions.codec = recorderCodec;
   recorderEncoderOptions.pixfmt = recorderFilterOptions.outFormat;
-  recorderEncoderOptions.width = recorderWidth;
-  recorderEncoderOptions.height = recorderHeight;
+  recorderEncoderOptions.width = recorderFilterOptions.width;
+  recorderEncoderOptions.height = recorderFilterOptions.height;
   recorderEncoderOptions.framerate = recorderFilterOptions.framerate;
   recorderEncoderOptions.bitrate = recorderBitrate;
 
@@ -74,8 +74,8 @@ int main() {
   recorderWriterOptions.bitrate = recorderEncoderOptions.bitrate;
 
   codec::FilterOptions encodedStreamFilterOptions;
-  encodedStreamFilterOptions.width = streamOptions.width;
-  encodedStreamFilterOptions.height = streamOptions.height;
+  encodedStreamFilterOptions.width = encodedStreamWidth;
+  encodedStreamFilterOptions.height = encodedStreamHeight;
   encodedStreamFilterOptions.framerate = streamOptions.framerate;
   encodedStreamFilterOptions.inFormat = streamPixfmt;
   encodedStreamFilterOptions.outFormat = encodedStreamPixfmt;
@@ -86,8 +86,8 @@ int main() {
   codec::EncoderOptions encodedStreamEncoderOptions;
   encodedStreamEncoderOptions.codec = encodedStreamCodec;
   encodedStreamEncoderOptions.pixfmt = encodedStreamFilterOptions.outFormat;
-  encodedStreamEncoderOptions.width = encodedStreamWidth;
-  encodedStreamEncoderOptions.height = encodedStreamHeight;
+  encodedStreamEncoderOptions.width = encodedStreamFilterOptions.width;
+  encodedStreamEncoderOptions.height = encodedStreamFilterOptions.height;
   encodedStreamEncoderOptions.framerate = encodedStreamFilterOptions.framerate;
   encodedStreamEncoderOptions.bitrate = encodedStreamBitrate;
 
