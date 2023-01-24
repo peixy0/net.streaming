@@ -19,6 +19,6 @@ git clone https://github.com/jbeder/yaml-cpp.git externals/yaml-cpp
 git clone https://github.com/google/googletest externals/googletest
 mkdir build
 cd build
-cmake .. -GNinja -DBUILD_TESTS=ON
+cmake .. -GNinja
 ninja
 ```

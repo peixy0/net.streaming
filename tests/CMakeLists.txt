@@ -1,5 +1,6 @@
 add_executable(
   all_tests
+  common_tests.cpp
   network_tests.cpp
 )
 

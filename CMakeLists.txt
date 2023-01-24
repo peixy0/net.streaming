@@ -5,10 +5,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_compile_options(-Wall -Wextra -pedantic -Werror)
+add_compile_options(-Wall -Wextra -pedantic)
 
 option(BUILD_STATIC "Build static flag" OFF)
-option(BUILD_TESTS "Build tests" ON)
 option(BUILD_WITH_ADDRESS_SANITIZER "Build with address sanitize flags" OFF)
 option(BUILD_WITH_MEMORY_SANITIZER "Build with memory sanitize flags" OFF)
 
@@ -32,9 +31,10 @@ if (BUILD_WITH_MEMORY_SANITIZER)
 endif()
 
 add_subdirectory(externals/spdlog)
-set(YAML_CPP_BUILD_TOOLS OFF)
-set(YAML_CPP_FORMAT_SOURCE OFF)
-set(YAML_CPP_BUILD_TESTS OFF)
+set(YAML_CPP_BUILD_TOOLS OFF CACHE INTERNAL "No build tools")
+set(YAML_CPP_FORMAT_SOURCE OFF CACHE INTERNAL "No format source")
+set(YAML_CPP_BUILD_TESTS OFF CACHE INTERNAL "No build tests")
+set(YAML_CPP_BUILD_TESTS OFF CACHE INTERNAL "No build tests")
 add_subdirectory(externals/yaml-cpp)
 
 project(
@@ -55,7 +55,7 @@ add_custom_target(
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
-if (BUILD_TESTS)
+if (BUILD_TESTING)
   add_subdirectory(externals/googletest)
   include(GoogleTest)
   enable_testing()

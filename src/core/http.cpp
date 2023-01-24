@@ -3,12 +3,13 @@
 #include <cctype>
 #include <sstream>
 #include "file.hpp"
-#include "network.hpp"
 
 namespace {
 
 std::string to_string(network::HttpStatus status) {
   switch (status) {
+    case network::HttpStatus::SwitchingProtocols:
+      return "101 Switching Protocols";
     case network::HttpStatus::OK:
       return "200 OK";
     case network::HttpStatus::BadRequest:
@@ -26,7 +27,7 @@ namespace network {
 ConcreteHttpSender::ConcreteHttpSender(TcpSender& sender) : sender{sender} {
 }
 
-void ConcreteHttpSender::Send(PreparedHttpResponse&& response) {
+void ConcreteHttpSender::Send(HttpResponse&& response) {
   std::string respPayload = "HTTP/1.1 " + to_string(response.status) + "\r\n";
   response.headers.emplace("Content-Length", std::to_string(response.body.length()));
   for (const auto& [k, v] : response.headers) {
@@ -41,7 +42,7 @@ void ConcreteHttpSender::Send(FileHttpResponse&& response) {
   os::File file{response.path};
   if (not file.Ok()) {
     spdlog::error("http open(\"{}\"): {}", response.path, strerror(errno));
-    PreparedHttpResponse resp;
+    HttpResponse resp;
     resp.status = HttpStatus::NotFound;
     resp.headers.emplace("Content-Type", "text/plain");
     resp.body = "Not Found";
@@ -98,9 +99,9 @@ void ConcreteHttpSender::Close() {
   sender.Close();
 }
 
-HttpLayer::HttpLayer(const HttpOptions& options, std::unique_ptr<HttpParser> parser, std::unique_ptr<HttpSender> sender,
-    std::unique_ptr<HttpProcessor> processor)
-    : options{options}, parser{std::move(parser)}, sender{std::move(sender)}, processor{std::move(processor)} {
+HttpLayer::HttpLayer(std::unique_ptr<HttpParser> parser, std::unique_ptr<HttpSender> sender_,
+    ProtocolUpgrader& upgrader, HttpProcessorFactory& processorFactory)
+    : parser{std::move(parser)}, sender{std::move(sender_)}, processor{processorFactory.Create(*sender, upgrader)} {
 }
 
 HttpLayer::~HttpLayer() {
@@ -109,32 +110,24 @@ HttpLayer::~HttpLayer() {
   sender.reset();
 }
 
-void HttpLayer::Process(std::string_view payload) {
-  parser->Append(payload);
-  size_t receivedPayloadSize = parser->GetLength();
-  if (receivedPayloadSize > options.maxPayloadSize) {
-    spdlog::error(
-        "http receivedPayloadSize({}) > options.maxPayloadSize({})", receivedPayloadSize, options.maxPayloadSize);
-    sender->Close();
-    return;
-  }
-  spdlog::debug("http received payload: {}", payload);
-  auto request = parser->Parse();
+void HttpLayer::Process(std::string& payload) {
+  auto request = parser->Parse(payload);
   if (not request) {
     return;
   }
+  spdlog::debug("http received request: method = {}, uri = {}", request->method, request->uri);
   processor->Process(std::move(*request));
 }
 
-HttpLayerFactory::HttpLayerFactory(const HttpOptions& options, HttpProcessorFactory& processorFactory)
-    : options{options}, processorFactory{processorFactory} {
+ConcreteHttpLayerFactory::ConcreteHttpLayerFactory(std::unique_ptr<HttpProcessorFactory> processorFactory)
+    : processorFactory{std::move(processorFactory)} {
 }
 
-std::unique_ptr<network::TcpProcessor> HttpLayerFactory::Create(TcpSender& tcpSender) const {
+std::unique_ptr<network::ProtocolProcessor> ConcreteHttpLayerFactory::Create(
+    TcpSender& tcpSender, ProtocolUpgrader& upgrader) const {
   auto parser = std::make_unique<ConcreteHttpParser>();
   auto sender = std::make_unique<ConcreteHttpSender>(tcpSender);
-  auto processor = processorFactory.Create(*sender);
-  return std::make_unique<HttpLayer>(options, std::move(parser), std::move(sender), std::move(processor));
+  return std::make_unique<HttpLayer>(std::move(parser), std::move(sender), upgrader, *processorFactory);
 }
 
 }  // namespace network

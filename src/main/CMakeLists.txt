@@ -13,10 +13,6 @@ target_link_libraries(
   core
   spdlog
   yaml-cpp
-  ${AVCODEC_LIBRARY}
-  ${AVUTIL_LIBRARY}
-  ${AVFILTER_LIBRARY}
-  ${AVFORMAT_LIBRARY}
 )
 
 set_target_properties(

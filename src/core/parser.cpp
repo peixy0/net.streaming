@@ -1,58 +1,39 @@
 #include "parser.hpp"
-
-namespace {
-
-void ToLower(std::string& s) {
-  for (char& c : s) {
-    c = tolower(c);
-  }
-}
-
-}  // namespace
+#include "common.hpp"
 
 namespace network {
 
-std::optional<HttpRequest> ConcreteHttpParser::Parse() {
+std::optional<HttpRequest> ConcreteHttpParser::Parse(std::string& payload_) const {
+  std::string payload = payload_;
+  auto method = ParseToken(payload);
   if (not method) {
-    method = ParseToken(payload);
-    if (not method) {
-      return std::nullopt;
-    }
-    ToLower(*method);
+    return std::nullopt;
   }
+  common::ToLower(*method);
+  auto uri = ParseToken(payload);
   if (not uri) {
-    uri = ParseToken(payload);
-    if (not uri) {
-      return std::nullopt;
-    }
-    uriBase = ParseUriBase(*uri);
-    query = ParseQueryString(*uri);
+    return std::nullopt;
   }
+  auto uriBase = ParseUriBase(*uri);
+  auto query = ParseQueryString(*uri);
+  auto version = ParseToken(payload);
   if (not version) {
-    version = ParseToken(payload);
-    if (not version) {
-      return std::nullopt;
-    }
+    return std::nullopt;
   }
+  auto requestLineEndingParsed = Consume(payload, "\r\n");
   if (not requestLineEndingParsed) {
-    requestLineEndingParsed = Consume(payload, "\r\n");
-    if (not requestLineEndingParsed) {
-      return std::nullopt;
-    }
+    return std::nullopt;
   }
+  HttpHeaders headers;
+  auto headersParsed = ParseHeaders(payload, headers);
   if (not headersParsed) {
-    headersParsed = ParseHeaders(payload, headers);
-    if (not headersParsed) {
-      return std::nullopt;
-    }
+    return std::nullopt;
   }
+  auto headersEndingParsed = Consume(payload, "\r\n");
   if (not headersEndingParsed) {
-    headersEndingParsed = Consume(payload, "\r\n");
-    if (not headersEndingParsed) {
-      return std::nullopt;
-    }
-    bodyRemaining = FindContentLength(headers);
+    return std::nullopt;
   }
+  auto bodyRemaining = FindContentLength(headers);
   if (payload.length() < bodyRemaining) {
     return std::nullopt;
   }
@@ -60,29 +41,8 @@ std::optional<HttpRequest> ConcreteHttpParser::Parse() {
   payload.erase(0, bodyRemaining);
   HttpRequest request{std::move(*method), std::move(uriBase), std::move(*version), std::move(headers), std::move(query),
       std::move(body)};
-  Reset();
+  payload_ = payload;
   return request;
-}
-
-void ConcreteHttpParser::Append(std::string_view received) {
-  receivedLength += received.length();
-  payload += received;
-}
-
-size_t ConcreteHttpParser::GetLength() const {
-  return receivedLength;
-}
-
-void ConcreteHttpParser::Reset() {
-  receivedLength = payload.length();
-  method.reset();
-  uri.reset();
-  version.reset();
-  requestLineEndingParsed = false;
-  headers.clear();
-  headersParsed = false;
-  headersEndingParsed = false;
-  bodyRemaining = 0;
 }
 
 void ConcreteHttpParser::SkipWhiteSpaces(std::string& payload) const {
@@ -140,7 +100,7 @@ std::optional<HttpHeader> ConcreteHttpParser::ParseHeader(std::string& payload) 
   if (not field) {
     return std::nullopt;
   }
-  ToLower(*field);
+  common::ToLower(*field);
   return HttpHeader{std::move(*field), std::move(*line)};
 }
 
@@ -214,6 +174,61 @@ HttpQuery ConcreteHttpParser::ParseQueryString(std::string& uri) const {
     }
   }
   return result;
+}
+
+std::optional<WebsocketFrame> ConcreteWebsocketFrameParser::Parse(std::string& payload) const {
+  int payloadLen = payload.length();
+  int requiredLen = headerLen;
+  if (payloadLen < requiredLen) {
+    return std::nullopt;
+  }
+  WebsocketFrame frame;
+  const auto* p = reinterpret_cast<const unsigned char*>(payload.data());
+  frame.fin = (p[0] >> 7) & 0b1;
+  frame.opcode = p[0] & 0b1111;
+  bool mask = (p[1] >> 7) & 0b1;
+  std::uint64_t len = p[1] & 0b1111111;
+  p += headerLen;
+  int payloadExtLen = 0;
+  if (len == 126) {
+    payloadExtLen = ext1Len;
+  }
+  if (len == 127) {
+    payloadExtLen = ext2Len;
+  }
+  requiredLen += payloadExtLen;
+  if (payloadLen < requiredLen) {
+    return std::nullopt;
+  }
+  if (payloadExtLen > 0) {
+    len = 0;
+    for (int i = 0; i < payloadExtLen; i++) {
+      len |= p[i] << (8 * (payloadExtLen - i - 1));
+    }
+    p += payloadExtLen;
+  }
+  unsigned char maskKey[maskLen] = {0};
+  if (mask) {
+    requiredLen += maskLen;
+    if (payloadLen < requiredLen) {
+      return std::nullopt;
+    }
+    for (int i = 0; i < maskLen; i++) {
+      maskKey[i] = p[i];
+    }
+    p += maskLen;
+  }
+  requiredLen += len;
+  if (payloadLen < requiredLen) {
+    return std::nullopt;
+  }
+  std::string data{p, p + len};
+  for (std::uint64_t i = 0; i < len; i++) {
+    data[i] ^= reinterpret_cast<const std::uint8_t*>(&maskKey)[i % maskLen];
+  }
+  frame.payload = std::move(data);
+  payload.erase(0, requiredLen);
+  return frame;
 }
 
 }  // namespace network

@@ -1,5 +1,10 @@
 add_library(
   core
+  codec.cpp
+  codec.hpp
+  common.cpp
+  common.hpp
+  event_queue.hpp
   file.cpp
   file.hpp
   http.cpp
@@ -7,20 +12,24 @@ add_library(
   network.hpp
   parser.cpp
   parser.hpp
+  protocol.cpp
+  protocol.hpp
   tcp.cpp
   tcp.hpp
-
-  codec.cpp
-  codec.hpp
-  event_queue.hpp
   video.cpp
   video.hpp
+  websocket.cpp
+  websocket.hpp
 )
 
 target_link_libraries(
   core
   PRIVATE
   spdlog
+  ${AVCODEC_LIBRARY}
+  ${AVUTIL_LIBRARY}
+  ${AVFILTER_LIBRARY}
+  ${AVFORMAT_LIBRARY}
 )
 
 target_include_directories(

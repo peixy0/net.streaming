@@ -5,14 +5,6 @@
 
 namespace network {
 
-class HttpParser {
-public:
-  virtual ~HttpParser() = default;
-  virtual std::optional<HttpRequest> Parse() = 0;
-  virtual void Append(std::string_view) = 0;
-  virtual size_t GetLength() const = 0;
-};
-
 class ConcreteHttpParser : public HttpParser {
 public:
   ConcreteHttpParser() = default;
@@ -20,11 +12,9 @@ public:
   ConcreteHttpParser(ConcreteHttpParser&&) = delete;
   ConcreteHttpParser& operator=(const ConcreteHttpParser&) = delete;
   ConcreteHttpParser& operator=(ConcreteHttpParser&&) = delete;
-  ~ConcreteHttpParser() = default;
+  ~ConcreteHttpParser() override = default;
 
-  std::optional<HttpRequest> Parse() override;
-  void Append(std::string_view) override;
-  size_t GetLength() const override;
+  std::optional<HttpRequest> Parse(std::string&) const override;
 
 private:
   void Reset();
@@ -40,19 +30,24 @@ private:
   std::string ParseQueryKey(std::string&) const;
   std::string ParseQueryValue(std::string&) const;
   HttpQuery ParseQueryString(std::string&) const;
+};
 
-  std::string payload;
-  size_t receivedLength{0};
-  std::optional<std::string> method;
-  std::optional<std::string> uri;
-  std::string uriBase;
-  HttpQuery query;
-  std::optional<std::string> version;
-  bool requestLineEndingParsed{false};
-  HttpHeaders headers;
-  bool headersParsed{false};
-  bool headersEndingParsed{false};
-  size_t bodyRemaining{0};
+class ConcreteWebsocketFrameParser : public WebsocketFrameParser {
+public:
+  ConcreteWebsocketFrameParser() = default;
+  ConcreteWebsocketFrameParser(const ConcreteWebsocketFrameParser&) = delete;
+  ConcreteWebsocketFrameParser(ConcreteWebsocketFrameParser&&) = delete;
+  ConcreteWebsocketFrameParser& operator=(const ConcreteWebsocketFrameParser&) = delete;
+  ConcreteWebsocketFrameParser& operator=(ConcreteWebsocketFrameParser&&) = delete;
+  ~ConcreteWebsocketFrameParser() override = default;
+
+  std::optional<WebsocketFrame> Parse(std::string&) const override;
+
+private:
+  static constexpr std::uint8_t headerLen = 2;
+  static constexpr std::uint8_t maskLen = 4;
+  static constexpr std::uint8_t ext1Len = 2;
+  static constexpr std::uint8_t ext2Len = 8;
 };
 
 }  // namespace network

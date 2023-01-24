@@ -7,7 +7,7 @@ namespace network {
 class ConcreteHttpSender : public HttpSender {
 public:
   ConcreteHttpSender(TcpSender&);
-  void Send(PreparedHttpResponse&&) override;
+  void Send(HttpResponse&&) override;
   void Send(FileHttpResponse&&) override;
   void Send(MixedReplaceHeaderHttpResponse&&) override;
   void Send(MixedReplaceDataHttpResponse&&) override;
@@ -19,37 +19,34 @@ private:
   TcpSender& sender;
 };
 
-class HttpLayer : public network::TcpProcessor {
+class HttpLayer : public network::ProtocolProcessor {
 public:
-  HttpLayer(
-      const HttpOptions&, std::unique_ptr<HttpParser>, std::unique_ptr<HttpSender>, std::unique_ptr<HttpProcessor>);
+  HttpLayer(std::unique_ptr<HttpParser>, std::unique_ptr<HttpSender>, ProtocolUpgrader&, HttpProcessorFactory&);
   HttpLayer(const HttpLayer&) = delete;
   HttpLayer(HttpLayer&&) = delete;
   HttpLayer& operator=(const HttpLayer&) = delete;
   HttpLayer& operator=(HttpLayer&&) = delete;
-  ~HttpLayer();
-  void Process(std::string_view) override;
+  ~HttpLayer() override;
+  void Process(std::string&) override;
 
 private:
-  HttpOptions options;
   std::unique_ptr<HttpParser> parser;
   std::unique_ptr<HttpSender> sender;
   std::unique_ptr<HttpProcessor> processor;
 };
 
-class HttpLayerFactory : public network::TcpProcessorFactory {
+class ConcreteHttpLayerFactory : public network::HttpLayerFactory {
 public:
-  HttpLayerFactory(const HttpOptions&, HttpProcessorFactory&);
-  HttpLayerFactory(const HttpLayerFactory&) = delete;
-  HttpLayerFactory(HttpLayerFactory&&) = delete;
-  HttpLayerFactory& operator=(const HttpLayerFactory&) = delete;
-  HttpLayerFactory& operator=(HttpLayerFactory&&) = delete;
-  ~HttpLayerFactory() = default;
-  std::unique_ptr<network::TcpProcessor> Create(TcpSender&) const override;
+  explicit ConcreteHttpLayerFactory(std::unique_ptr<HttpProcessorFactory>);
+  ConcreteHttpLayerFactory(const ConcreteHttpLayerFactory&) = delete;
+  ConcreteHttpLayerFactory(ConcreteHttpLayerFactory&&) = delete;
+  ConcreteHttpLayerFactory& operator=(const ConcreteHttpLayerFactory&) = delete;
+  ConcreteHttpLayerFactory& operator=(ConcreteHttpLayerFactory&&) = delete;
+  ~ConcreteHttpLayerFactory() override = default;
+  std::unique_ptr<network::ProtocolProcessor> Create(TcpSender&, ProtocolUpgrader&) const override;
 
 private:
-  HttpOptions options;
-  HttpProcessorFactory& processorFactory;
+  std::unique_ptr<HttpProcessorFactory> processorFactory;
 };
 
 }  // namespace network

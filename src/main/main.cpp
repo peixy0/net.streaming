@@ -5,6 +5,7 @@
 #include "codec.hpp"
 #include "event_queue.hpp"
 #include "http.hpp"
+#include "protocol.hpp"
 #include "stream.hpp"
 #include "tcp.hpp"
 #include "video.hpp"
@@ -114,23 +115,22 @@ int main() {
   application::AppStreamRecorderController recorderController{mjpegDistributer, recorderEventQueue};
   application::AppStreamTranscoderFactory encodedStreamTranscoderFactory{
       decoderOptions, encodedStreamFilterOptions, encodedStreamEncoderOptions, encodedStreamWriterOptions};
-  application::AppLayerFactory appFactory{
-      mjpegDistributer, snapshotSaver, recorderController, encodedStreamTranscoderFactory};
-
-  network::HttpOptions httpOptions;
-  httpOptions.maxPayloadSize = 1 << 20;
-  network::HttpLayerFactory httpLayerFactory{httpOptions, appFactory};
 
   std::vector<std::thread> workers;
   const int nWorkers = std::thread::hardware_concurrency() + 1;
   for (int i = 0; i < nWorkers; i++) {
-    workers.emplace_back([&serverAddr, &serverPort, &httpLayerFactory]() {
-      network::Tcp4Layer tcp{serverAddr, serverPort, httpLayerFactory};
+    workers.emplace_back([&serverAddr, &serverPort, &mjpegDistributer, &snapshotSaver, &recorderController,
+                             &encodedStreamTranscoderFactory]() {
+      auto appLayerFactory = std::make_unique<application::AppLayerFactory>(
+          mjpegDistributer, snapshotSaver, recorderController, encodedStreamTranscoderFactory);
+      auto httpLayerFactory = std::make_unique<network::ConcreteHttpLayerFactory>(std::move(appLayerFactory));
+      auto protocolLayerFactory = std::make_unique<network::ProtocolLayerFactory>(std::move(httpLayerFactory));
+      network::Tcp4Layer tcp{serverAddr, serverPort, std::move(protocolLayerFactory)};
       tcp.Start();
     });
   }
-  for (int i = 0; i < nWorkers; i++) {
-    workers[i].join();
+  for (auto& w : workers) {
+    w.join();
   }
 
   return 0;

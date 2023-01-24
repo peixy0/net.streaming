@@ -34,10 +34,10 @@ public:
   std::unique_ptr<AppStreamTranscoder> Create(std::string_view);
 
 private:
-  codec::DecoderOptions decoderOptions;
-  codec::FilterOptions filterOptions;
-  codec::EncoderOptions encoderOptions;
-  codec::WriterOptions writerOptions;
+  const codec::DecoderOptions decoderOptions;
+  const codec::FilterOptions filterOptions;
+  const codec::EncoderOptions encoderOptions;
+  const codec::WriterOptions writerOptions;
 };
 
 struct AppStreamRecorderOptions {

@@ -91,7 +91,7 @@ public:
   void Process(network::HttpRequest&&) override;
 
 private:
-  network::PreparedHttpResponse BuildPlainTextRequest(network::HttpStatus, std::string_view) const;
+  network::HttpResponse BuildPlainTextRequest(network::HttpStatus, std::string_view) const;
 
   network::HttpSender& sender;
   AppStreamDistributer& mjpegDistributer;
@@ -105,7 +105,7 @@ class AppLayerFactory : public network::HttpProcessorFactory {
 public:
   AppLayerFactory(
       AppStreamDistributer&, AppStreamSnapshotSaver&, AppStreamRecorderController&, AppStreamTranscoderFactory&);
-  std::unique_ptr<network::HttpProcessor> Create(network::HttpSender&) const override;
+  std::unique_ptr<network::HttpProcessor> Create(network::HttpSender&, network::ProtocolUpgrader&) const override;
 
 private:
   AppStreamDistributer& mjpegDistributer;

@@ -174,7 +174,7 @@ void AppLayer::Process(network::HttpRequest&& req) {
   }
   if (req.uri == "/snapshot") {
     const auto payload = snapshotSaver.GetSnapshot();
-    network::PreparedHttpResponse resp;
+    network::HttpResponse resp;
     resp.status = network::HttpStatus::OK;
     resp.headers.emplace("Content-Type", "image/jpeg");
     resp.body = std::move(payload);
@@ -211,8 +211,8 @@ void AppLayer::Process(network::HttpRequest&& req) {
   return sender.Send(BuildPlainTextRequest(network::HttpStatus::NotFound, "Not Found"));
 }
 
-network::PreparedHttpResponse AppLayer::BuildPlainTextRequest(network::HttpStatus status, std::string_view body) const {
-  network::PreparedHttpResponse resp;
+network::HttpResponse AppLayer::BuildPlainTextRequest(network::HttpStatus status, std::string_view body) const {
+  network::HttpResponse resp;
   resp.status = status;
   resp.headers.emplace("Content-Type", "text/plain; charset=UTF-8");
   resp.body = body;
@@ -227,7 +227,8 @@ AppLayerFactory::AppLayerFactory(AppStreamDistributer& mjpegDistributer, AppStre
       transcoderFactory{transcoderFactory} {
 }
 
-std::unique_ptr<network::HttpProcessor> AppLayerFactory::Create(network::HttpSender& sender) const {
+std::unique_ptr<network::HttpProcessor> AppLayerFactory::Create(
+    network::HttpSender& sender, network::ProtocolUpgrader&) const {
   return std::make_unique<AppLayer>(sender, mjpegDistributer, snapshotSaver, recorderController, transcoderFactory);
 }
 

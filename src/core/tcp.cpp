@@ -85,7 +85,7 @@ ConcreteTcpSender::ConcreteTcpSender(int s, TcpSenderSupervisor& supervisor) : p
 }
 
 ConcreteTcpSender::~ConcreteTcpSender() {
-  Close();
+  ConcreteTcpSender::Close();
 }
 
 void ConcreteTcpSender::SendBuffered() {
@@ -139,26 +139,27 @@ void ConcreteTcpSender::UnmarkPending() {
 }
 
 TcpConnectionContext::TcpConnectionContext(
-    int fd, std::unique_ptr<TcpProcessor> receiver, std::unique_ptr<TcpSender> sender)
-    : fd{fd}, receiver{std::move(receiver)}, sender{std::move(sender)} {
+    int fd, std::unique_ptr<TcpProcessor> processor, std::unique_ptr<TcpSender> sender)
+    : fd{fd}, processor{std::move(processor)}, sender{std::move(sender)} {
   spdlog::info("tcp connection established: {}", fd);
 }
 
 TcpConnectionContext::~TcpConnectionContext() {
   spdlog::info("tcp connection closed: {}", fd);
-  receiver.reset();
+  processor.reset();
   sender.reset();
 }
 
-TcpProcessor& TcpConnectionContext::GetReceiver() {
-  return *receiver;
+TcpProcessor& TcpConnectionContext::GetProcessor() {
+  return *processor;
 }
 
 TcpSender& TcpConnectionContext::GetSender() {
   return *sender;
 }
 
-TcpLayer::TcpLayer(TcpProcessorFactory& receiverFactory) : receiverFactory{receiverFactory} {
+TcpLayer::TcpLayer(std::unique_ptr<TcpProcessorFactory> processorFactory)
+    : processorFactory{std::move(processorFactory)} {
 }
 
 TcpLayer::~TcpLayer() {
@@ -269,8 +270,8 @@ void TcpLayer::SetupPeer() {
   MarkReceiverPending(s);
 
   auto sender = std::make_unique<ConcreteTcpSender>(s, *this);
-  auto receiver = receiverFactory.Create(*sender);
-  connections.try_emplace(s, s, std::move(receiver), std::move(sender));
+  auto processor = processorFactory->Create(*sender);
+  connections.try_emplace(s, s, std::move(processor), std::move(sender));
 }
 
 void TcpLayer::ClosePeer(int peerDescriptor) {
@@ -300,8 +301,8 @@ void TcpLayer::ReadFromPeer(int peerDescriptor) {
     return;
   }
   auto& context = std::get<TcpConnectionContext>(*it);
-  auto& receiver = context.GetReceiver();
-  receiver.Process({buf, buf + r});
+  auto& processor = context.GetProcessor();
+  processor.Process({buf, buf + r});
 }
 
 void TcpLayer::SendToPeer(int peerDescriptor) {
@@ -315,19 +316,18 @@ void TcpLayer::SendToPeer(int peerDescriptor) {
   context.GetSender().SendBuffered();
 }
 
-Tcp4Layer::Tcp4Layer(std::string_view host, std::uint16_t port, TcpProcessorFactory& receiverFactory)
-    : TcpLayer{receiverFactory}, host{host}, port{port} {
+Tcp4Layer::Tcp4Layer(std::string_view host, std::uint16_t port, std::unique_ptr<TcpProcessorFactory> processorFactory)
+    : TcpLayer{std::move(processorFactory)}, host{host}, port{port} {
 }
 
 int Tcp4Layer::CreateSocket() {
   const int one = 1;
-  int r = 0;
   int s = socket(AF_INET, SOCK_STREAM, 0);
   if (s < 0) {
     spdlog::error("tcp socket(): {}", strerror(errno));
     goto out;
   }
-  if ((r = setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &one, sizeof one)) < 0) {
+  if (setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &one, sizeof one) < 0) {
     spdlog::error("tcp setsockopt(SO_REUSEADDR): {}", strerror(errno));
     goto out;
   }
@@ -338,12 +338,12 @@ int Tcp4Layer::CreateSocket() {
   localAddr.sin_family = AF_INET;
   localAddr.sin_addr.s_addr = inet_addr(host.c_str());
   localAddr.sin_port = htons(port);
-  if ((r = bind(s, reinterpret_cast<sockaddr*>(&localAddr), sizeof localAddr)) < 0) {
+  if (bind(s, reinterpret_cast<sockaddr*>(&localAddr), sizeof localAddr) < 0) {
     spdlog::error("tcp bind(): {}", strerror(errno));
     goto out;
   }
 
-  if ((r = listen(s, 8)) < 0) {
+  if (listen(s, 8) < 0) {
     spdlog::error("tcp listen(): {}", strerror(errno));
     goto out;
   }
