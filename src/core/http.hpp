@@ -27,11 +27,13 @@ public:
   HttpLayer& operator=(const HttpLayer&) = delete;
   HttpLayer& operator=(HttpLayer&&) = delete;
   ~HttpLayer() override;
-  void Process(std::string&) override;
+  bool TryProcess(std::string&) override;
 
 private:
   std::unique_ptr<HttpParser> parser;
   std::unique_ptr<HttpSender> sender;
+  ProtocolUpgrader& upgrader;
+  HttpProcessorFactory& processorFactory;
   std::unique_ptr<HttpProcessor> processor;
 };
 

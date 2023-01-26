@@ -40,13 +40,14 @@ public:
   WebsocketLayer& operator=(WebsocketLayer&&) = delete;
   ~WebsocketLayer() override;
 
-  void Process(std::string&) override;
+  bool TryProcess(std::string&) override;
 
 private:
   static constexpr std::uint8_t opClose = 8;
 
   std::unique_ptr<network::WebsocketFrameParser> parser;
   std::unique_ptr<network::WebsocketFrameSender> sender;
+  WebsocketProcessorFactory& processorFactory;
   std::unique_ptr<WebsocketProcessor> processor;
   std::string message;
 };

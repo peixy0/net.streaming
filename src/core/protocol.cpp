@@ -13,9 +13,7 @@ void ProtocolLayer::Process(std::string_view payload) {
     if (not processor) {
       break;
     }
-    auto bufferLen = buffer.size();
-    processor->Process(buffer);
-    if (bufferLen == buffer.size()) {
+    if (not processor->TryProcess(buffer)) {
       break;
     }
   }

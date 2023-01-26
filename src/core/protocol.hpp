@@ -38,8 +38,8 @@ public:
   void Add(std::unique_ptr<WebsocketLayerFactory>);
 
 private:
-  std::unique_ptr<HttpLayerFactory> httpLayerFactory{nullptr};
-  std::unique_ptr<WebsocketLayerFactory> websocketLayerFactory{nullptr};
+  std::unique_ptr<HttpLayerFactory> httpLayerFactory;
+  std::unique_ptr<WebsocketLayerFactory> websocketLayerFactory;
 };
 
 }  // namespace network

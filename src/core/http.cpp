@@ -101,7 +101,7 @@ void ConcreteHttpSender::Close() {
 
 HttpLayer::HttpLayer(std::unique_ptr<HttpParser> parser, std::unique_ptr<HttpSender> sender_,
     ProtocolUpgrader& upgrader, HttpProcessorFactory& processorFactory)
-    : parser{std::move(parser)}, sender{std::move(sender_)}, processor{processorFactory.Create(*sender, upgrader)} {
+    : parser{std::move(parser)}, sender{std::move(sender_)}, upgrader{upgrader}, processorFactory{processorFactory} {
 }
 
 HttpLayer::~HttpLayer() {
@@ -110,13 +110,15 @@ HttpLayer::~HttpLayer() {
   sender.reset();
 }
 
-void HttpLayer::Process(std::string& payload) {
+bool HttpLayer::TryProcess(std::string& payload) {
   auto request = parser->Parse(payload);
   if (not request) {
-    return;
+    return false;
   }
   spdlog::debug("http received request: method = {}, uri = {}", request->method, request->uri);
+  processor = processorFactory.Create(*sender, upgrader);
   processor->Process(std::move(*request));
+  return true;
 }
 
 ConcreteHttpLayerFactory::ConcreteHttpLayerFactory(std::unique_ptr<HttpProcessorFactory> processorFactory)

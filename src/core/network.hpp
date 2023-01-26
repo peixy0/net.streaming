@@ -45,7 +45,7 @@ public:
 class ProtocolProcessor {
 public:
   virtual ~ProtocolProcessor() = default;
-  virtual void Process(std::string&) = 0;
+  virtual bool TryProcess(std::string&) = 0;
 };
 
 class HttpLayerFactory {

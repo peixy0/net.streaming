@@ -59,8 +59,8 @@ std::optional<HttpResponse> WebsocketHandshakeBuilder::Build() const {
 }
 
 WebsocketLayer::WebsocketLayer(std::unique_ptr<network::WebsocketFrameParser> parser,
-    std::unique_ptr<network::WebsocketFrameSender> sender_, WebsocketProcessorFactory& processorFactory)
-    : parser{std::move(parser)}, sender{std::move(sender_)}, processor{processorFactory.Create(*sender)} {
+    std::unique_ptr<network::WebsocketFrameSender> sender, WebsocketProcessorFactory& processorFactory)
+    : parser{std::move(parser)}, sender{std::move(sender)}, processorFactory{processorFactory} {
 }
 
 WebsocketLayer::~WebsocketLayer() {
@@ -69,18 +69,20 @@ WebsocketLayer::~WebsocketLayer() {
   sender.reset();
 }
 
-void WebsocketLayer::Process(std::string& payload) {
+bool WebsocketLayer::TryProcess(std::string& payload) {
   auto frame = parser->Parse(payload);
   if (not frame) {
-    return;
+    return false;
   }
   spdlog::debug("websocket received frame: fin = {}, opcode = {}", frame->fin, frame->opcode);
   spdlog::debug("websocket received message: {}", frame->payload);
   if (frame->opcode == opClose) {
     sender->Close();
-    return;
+    return true;
   }
+  processor = processorFactory.Create(*sender);
   processor->Process(std::move(*frame));
+  return true;
 }
 
 ConcreteWebsocketLayerFactory::ConcreteWebsocketLayerFactory(

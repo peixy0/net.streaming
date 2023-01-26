@@ -55,6 +55,7 @@ add_custom_target(
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
+include(CTest)
 if (BUILD_TESTING)
   add_subdirectory(externals/googletest)
   include(GoogleTest)
