@@ -120,10 +120,10 @@ public:
   AppHttpLayer& operator=(AppHttpLayer&&) = delete;
   ~AppHttpLayer() = default;
 
-  void GetIndex(network::HttpRequest&&, network::HttpSender&);
-  void GetSnapshot(network::HttpRequest&&, network::HttpSender&);
-  void GetRecording(network::HttpRequest&&, network::HttpSender&);
-  void SetRecording(network::HttpRequest&&, network::HttpSender&);
+  void GetIndex(network::HttpRequest&&, network::HttpSender&) const;
+  void GetSnapshot(network::HttpRequest&&, network::HttpSender&) const;
+  void GetRecording(network::HttpRequest&&, network::HttpSender&) const;
+  void SetRecording(network::HttpRequest&&, network::HttpSender&) const;
 
 private:
   AppStreamSnapshotSaver& snapshotSaver;

@@ -195,14 +195,14 @@ AppHttpLayer::AppHttpLayer(AppStreamSnapshotSaver& snapshotSaver, AppStreamRecor
     : snapshotSaver{snapshotSaver}, processorController{recorderController} {
 }
 
-void AppHttpLayer::GetIndex(network::HttpRequest&&, network::HttpSender& sender) {
+void AppHttpLayer::GetIndex(network::HttpRequest&&, network::HttpSender& sender) const {
   network::FileHttpResponse resp;
   resp.path = "index.html";
   resp.headers.emplace("Content-Type", "text/html");
   return sender.Send(std::move(resp));
 }
 
-void AppHttpLayer::GetSnapshot(network::HttpRequest&&, network::HttpSender& sender) {
+void AppHttpLayer::GetSnapshot(network::HttpRequest&&, network::HttpSender& sender) const {
   const auto payload = snapshotSaver.GetSnapshot();
   network::HttpResponse resp;
   resp.status = network::HttpStatus::OK;
@@ -211,11 +211,11 @@ void AppHttpLayer::GetSnapshot(network::HttpRequest&&, network::HttpSender& send
   return sender.Send(std::move(resp));
 }
 
-void AppHttpLayer::GetRecording(network::HttpRequest&&, network::HttpSender& sender) {
+void AppHttpLayer::GetRecording(network::HttpRequest&&, network::HttpSender& sender) const {
   return sender.Send(BuildPlainTextRequest(network::HttpStatus::OK, processorController.IsRecording() ? "on" : "off"));
 }
 
-void AppHttpLayer::SetRecording(network::HttpRequest&& req, network::HttpSender& sender) {
+void AppHttpLayer::SetRecording(network::HttpRequest&& req, network::HttpSender& sender) const {
   if (req.body == "on") {
     processorController.Start();
   }

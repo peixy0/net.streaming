@@ -30,8 +30,8 @@ class AppStreamTranscoderFactory {
 public:
   AppStreamTranscoderFactory(const codec::DecoderOptions&, const codec::FilterOptions&, const codec::EncoderOptions&,
       const codec::WriterOptions&);
-  std::unique_ptr<AppStreamTranscoder> Create(codec::WriterProcessor&);
-  std::unique_ptr<AppStreamTranscoder> Create(std::string_view);
+  std::unique_ptr<AppStreamTranscoder> Create(codec::WriterProcessor&) const;
+  std::unique_ptr<AppStreamTranscoder> Create(std::string_view) const;
 
 private:
   const codec::DecoderOptions decoderOptions;

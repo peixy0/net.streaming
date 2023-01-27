@@ -41,7 +41,7 @@ AppStreamTranscoderFactory::AppStreamTranscoderFactory(const codec::DecoderOptio
       writerOptions{writerOptions} {
 }
 
-std::unique_ptr<AppStreamTranscoder> AppStreamTranscoderFactory::Create(codec::WriterProcessor& processor) {
+std::unique_ptr<AppStreamTranscoder> AppStreamTranscoderFactory::Create(codec::WriterProcessor& processor) const {
   auto decoder = std::make_unique<codec::Decoder>(decoderOptions);
   auto filter = std::make_unique<codec::Filter>(filterOptions);
   auto encoder = std::make_unique<codec::Encoder>(encoderOptions);
@@ -51,7 +51,7 @@ std::unique_ptr<AppStreamTranscoder> AppStreamTranscoderFactory::Create(codec::W
       std::move(decoder), std::move(filter), std::move(encoder), std::move(transcoder), std::move(writer));
 }
 
-std::unique_ptr<AppStreamTranscoder> AppStreamTranscoderFactory::Create(std::string_view filename) {
+std::unique_ptr<AppStreamTranscoder> AppStreamTranscoderFactory::Create(std::string_view filename) const {
   auto decoder = std::make_unique<codec::Decoder>(decoderOptions);
   auto filter = std::make_unique<codec::Filter>(filterOptions);
   auto encoder = std::make_unique<codec::Encoder>(encoderOptions);
