@@ -3,45 +3,28 @@
 
 namespace network {
 
-ProtocolLayer::ProtocolLayer(TcpSender& sender_, HttpLayerFactory& httpLayerFactory)
-    : sender{sender_}, httpLayerFactory{httpLayerFactory}, processor{httpLayerFactory.Create(sender, *this)} {
+ProtocolLayer::ProtocolLayer(TcpSender& sender, RouterFactory& routerFactory)
+    : httpSender{sender},
+      websocketSender{sender},
+      router{routerFactory.Create(httpSender, websocketSender, *this)},
+      processor{std::make_unique<HttpLayer>(httpParser, httpSender, *router)} {
 }
 
 void ProtocolLayer::Process(std::string_view payload) {
   buffer += payload;
-  while (true) {
-    if (not processor) {
-      break;
-    }
-    if (not processor->TryProcess(buffer)) {
-      break;
-    }
+  while (processor->TryProcess(buffer)) {
   }
-}
-
-void ProtocolLayer::Add(WebsocketLayerFactory* websocketLayerFactory_) {
-  websocketLayerFactory = websocketLayerFactory_;
 }
 
 void ProtocolLayer::UpgradeToWebsocket() {
-  processor.reset();
-  if (websocketLayerFactory) {
-    processor = websocketLayerFactory->Create(sender);
-  }
+  processor = std::make_unique<WebsocketLayer>(websocketParser, websocketSender, *router);
 }
 
-ProtocolLayerFactory::ProtocolLayerFactory(std::unique_ptr<HttpLayerFactory> httpLayerFactory)
-    : httpLayerFactory{std::move(httpLayerFactory)} {
+ProtocolLayerFactory::ProtocolLayerFactory(RouterFactory& routerFactory) : routerFactory{routerFactory} {
 }
 
 std::unique_ptr<TcpProcessor> ProtocolLayerFactory::Create(TcpSender& sender) const {
-  auto protocolLayer = std::make_unique<ProtocolLayer>(sender, *httpLayerFactory);
-  protocolLayer->Add(websocketLayerFactory.get());
-  return protocolLayer;
-}
-
-void ProtocolLayerFactory::Add(std::unique_ptr<WebsocketLayerFactory> websocketLayerFactory_) {
-  websocketLayerFactory = std::move(websocketLayerFactory_);
+  return std::make_unique<ProtocolLayer>(sender, routerFactory);
 }
 
 }  // namespace network

@@ -77,8 +77,8 @@ public:
   TcpConnectionContext& operator=(TcpConnectionContext&&) = delete;
   ~TcpConnectionContext();
 
-  TcpProcessor& GetProcessor();
-  TcpSender& GetSender();
+  TcpProcessor& GetProcessor() const;
+  TcpSender& GetSender() const;
 
 private:
   int fd;
@@ -96,22 +96,20 @@ public:
   virtual ~TcpLayer() override;
 
   void Start();
-  void MarkSenderPending(int) override;
-  void UnmarkSenderPending(int) override;
+  void MarkSenderPending(int) const override;
+  void UnmarkSenderPending(int) const override;
 
 protected:
-  virtual int CreateSocket() = 0;
-  void SetNonBlocking(int);
+  virtual int CreateSocket() const = 0;
+  void SetNonBlocking(int) const;
 
 private:
   void StartLoop();
-  void MarkReceiverPending(int);
   void SetupPeer();
   void ClosePeer(int);
   void ReadFromPeer(int);
-  void SendToPeer(int);
-  void PurgeExpiredConnections();
-  int FindMostRecentTimeout() const;
+  void SendToPeer(int) const;
+  void MarkReceiverPending(int) const;
 
   std::unique_ptr<TcpProcessorFactory> processorFactory;
   int localDescriptor{-1};
@@ -124,7 +122,7 @@ public:
   Tcp4Layer(std::string_view, std::uint16_t, std::unique_ptr<TcpProcessorFactory>);
 
 protected:
-  int CreateSocket() override;
+  int CreateSocket() const override;
 
 private:
   std::string host;

@@ -1,11 +1,28 @@
 #pragma once
 #include <optional>
 #include "network.hpp"
-#include "parser.hpp"
 
 namespace network {
 
-class ConcreteWebsocketSender : public WebsocketFrameSender {
+class ConcreteWebsocketParser : public WebsocketParser {
+public:
+  ConcreteWebsocketParser() = default;
+  ConcreteWebsocketParser(const ConcreteWebsocketParser&) = delete;
+  ConcreteWebsocketParser(ConcreteWebsocketParser&&) = delete;
+  ConcreteWebsocketParser& operator=(const ConcreteWebsocketParser&) = delete;
+  ConcreteWebsocketParser& operator=(ConcreteWebsocketParser&&) = delete;
+  ~ConcreteWebsocketParser() override = default;
+
+  std::optional<WebsocketFrame> Parse(std::string&) const override;
+
+private:
+  static constexpr std::uint8_t headerLen = 2;
+  static constexpr std::uint8_t maskLen = 4;
+  static constexpr std::uint8_t ext1Len = 2;
+  static constexpr std::uint8_t ext2Len = 8;
+};
+
+class ConcreteWebsocketSender : public WebsocketSender {
 public:
   explicit ConcreteWebsocketSender(TcpSender&);
   ConcreteWebsocketSender(const ConcreteWebsocketSender&) = delete;
@@ -14,8 +31,8 @@ public:
   ConcreteWebsocketSender& operator=(ConcreteWebsocketSender&&) = delete;
   ~ConcreteWebsocketSender() override = default;
 
-  void Send(WebsocketFrame&&) override;
-  void Close() override;
+  void Send(WebsocketFrame&&) const override;
+  void Close() const override;
 
 private:
   TcpSender& sender;
@@ -32,38 +49,19 @@ private:
 
 class WebsocketLayer : public ProtocolProcessor {
 public:
-  WebsocketLayer(std::unique_ptr<network::WebsocketFrameParser>, std::unique_ptr<network::WebsocketFrameSender>,
-      WebsocketProcessorFactory&);
+  WebsocketLayer(WebsocketParser&, WebsocketSender&, WebsocketProcessor&);
   WebsocketLayer(const WebsocketLayer&) = delete;
   WebsocketLayer(WebsocketLayer&&) = delete;
   WebsocketLayer& operator=(const WebsocketLayer&) = delete;
   WebsocketLayer& operator=(WebsocketLayer&&) = delete;
   ~WebsocketLayer() override;
 
-  bool TryProcess(std::string&) override;
+  bool TryProcess(std::string&) const override;
 
 private:
-  static constexpr std::uint8_t opClose = 8;
-
-  std::unique_ptr<network::WebsocketFrameParser> parser;
-  std::unique_ptr<network::WebsocketFrameSender> sender;
-  WebsocketProcessorFactory& processorFactory;
-  std::unique_ptr<WebsocketProcessor> processor;
-  std::string message;
-};
-
-class ConcreteWebsocketLayerFactory : public WebsocketLayerFactory {
-public:
-  explicit ConcreteWebsocketLayerFactory(std::unique_ptr<WebsocketProcessorFactory>);
-  ConcreteWebsocketLayerFactory(const ConcreteWebsocketLayerFactory&) = delete;
-  ConcreteWebsocketLayerFactory(ConcreteWebsocketLayerFactory&&) = delete;
-  ConcreteWebsocketLayerFactory& operator=(const ConcreteWebsocketLayerFactory&) = delete;
-  ConcreteWebsocketLayerFactory& operator=(ConcreteWebsocketLayerFactory&&) = delete;
-  ~ConcreteWebsocketLayerFactory() override = default;
-  std::unique_ptr<ProtocolProcessor> Create(TcpSender&) const override;
-
-private:
-  std::unique_ptr<WebsocketProcessorFactory> processorFactory;
+  WebsocketParser& parser;
+  WebsocketSender& sender;
+  WebsocketProcessor& processor;
 };
 
 }  // namespace network

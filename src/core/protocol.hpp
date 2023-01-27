@@ -1,12 +1,14 @@
 #pragma once
 #include <memory>
+#include "http.hpp"
 #include "network.hpp"
+#include "websocket.hpp"
 
 namespace network {
 
 class ProtocolLayer : public TcpProcessor, public ProtocolUpgrader {
 public:
-  explicit ProtocolLayer(TcpSender&, HttpLayerFactory&);
+  ProtocolLayer(TcpSender&, RouterFactory&);
   ProtocolLayer(const ProtocolLayer&) = delete;
   ProtocolLayer(ProtocolLayer&&) = delete;
   ProtocolLayer& operator=(const ProtocolLayer&) = delete;
@@ -14,20 +16,21 @@ public:
   ~ProtocolLayer() override = default;
 
   void Process(std::string_view) override;
-  void Add(WebsocketLayerFactory*);
   void UpgradeToWebsocket() override;
 
 private:
-  TcpSender& sender;
-  HttpLayerFactory& httpLayerFactory;
+  ConcreteHttpParser httpParser;
+  ConcreteHttpSender httpSender;
+  ConcreteWebsocketParser websocketParser;
+  ConcreteWebsocketSender websocketSender;
+  std::unique_ptr<Router> router;
   std::unique_ptr<ProtocolProcessor> processor;
-  WebsocketLayerFactory* websocketLayerFactory{nullptr};
   std::string buffer;
 };
 
 class ProtocolLayerFactory : public TcpProcessorFactory {
 public:
-  explicit ProtocolLayerFactory(std::unique_ptr<HttpLayerFactory>);
+  explicit ProtocolLayerFactory(RouterFactory&);
   ProtocolLayerFactory(const ProtocolLayerFactory&) = delete;
   ProtocolLayerFactory(ProtocolLayerFactory&&) = delete;
   ProtocolLayerFactory& operator=(const ProtocolLayerFactory&) = delete;
@@ -35,11 +38,9 @@ public:
   ~ProtocolLayerFactory() override = default;
 
   std::unique_ptr<TcpProcessor> Create(TcpSender&) const override;
-  void Add(std::unique_ptr<WebsocketLayerFactory>);
 
 private:
-  std::unique_ptr<HttpLayerFactory> httpLayerFactory;
-  std::unique_ptr<WebsocketLayerFactory> websocketLayerFactory;
+  RouterFactory& routerFactory;
 };
 
 }  // namespace network

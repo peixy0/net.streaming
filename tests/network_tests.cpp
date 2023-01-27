@@ -28,7 +28,7 @@ TEST(HttpParserTest, whenReceivedValidHttpRequest_itShouldParseTheRequest) {
   p1 += p2;
   const auto req2 = sut->Parse(p1);
   ASSERT_TRUE(req2);
-  ASSERT_EQ(req2->method, "get");
+  ASSERT_EQ(req2->method, HttpMethod::GET);
   ASSERT_EQ(req2->uri, "/request");
   ASSERT_EQ(req2->version, "HTTP/1.1");
   ASSERT_EQ(req2->headers.at("accept-encoding"), "gzip, deflate, br");
@@ -49,7 +49,7 @@ TEST(HttpParserTest, whenReceivedValidSwitchingProtocolRequest_itShouldParseTheR
       "Sec-WebSocket-Version: 13\r\n\r\n"};
   const auto req1 = sut->Parse(p1);
   ASSERT_TRUE(req1);
-  ASSERT_EQ(req1->method, "get");
+  ASSERT_EQ(req1->method, HttpMethod::GET);
   ASSERT_EQ(req1->uri, "/websocket");
   ASSERT_EQ(req1->version, "HTTP/1.1");
   ASSERT_EQ(req1->headers.at("upgrade"), "Websocket");
@@ -61,7 +61,7 @@ TEST(HttpParserTest, whenReceivedValidSwitchingProtocolRequest_itShouldParseTheR
 
 TEST(WebsocketHandshakeBuilderTest, whenReceivedValidUpgradeRequest_itShouldProduceUpgradeResponse) {
   HttpRequest req;
-  req.method = "get";
+  req.method = HttpMethod::GET;
   req.uri = "/websocket";
   req.version = "HTTP/1.1";
   req.headers.emplace("connection", "Upgrade, keep-alive");

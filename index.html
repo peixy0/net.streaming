@@ -35,6 +35,10 @@
     button {
       padding: 3px 10px;
       height: 2.2em;
+      background: #fff;
+      border: none;
+      box-shadow: none;
+      border-radius: 1em;
     }
 
     .control {
@@ -56,13 +60,13 @@
   </head>
   <body>
     <div class="stream">
-      <img id="stream" src="/mjpeg">
+      <img id="stream">
     </div>
     <div class="control">
       <button id="startRecording">⬤ Start Recording</button>
       <button id="stopRecording">⬤ Stop Recording</button>
-      <button id="lowFramerate">15 FPS</button>
-      <button id="highFramerate">30 FPS</button>
+      <button id="lowFramerate">Bandwidth Mode</button>
+      <button id="highFramerate">Quality Mode</button>
     </div>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -74,45 +78,55 @@
 
       let lowFramerateCtrl = document.querySelector('#lowFramerate');
       let highFramerateCtrl = document.querySelector('#highFramerate');
-      let highFramerate = false;
+      let highFramerate = localStorage.getItem('HighFramerate') == 'on' ? true : false;
 
-      function resetControl() {
+      function reset() {
         startRecordingCtrl.hidden = recording;
         stopRecordingCtrl.hidden = !recording;
         lowFramerateCtrl.hidden = highFramerate;
         highFramerateCtrl.hidden = !highFramerate;
+        localStorage.setItem('HighFramerate', highFramerate ? 'on' : 'off');
+        if (highFramerate) {
+          stream.src = '/mjpeg2';
+        } else {
+          stream.src = '/mjpeg';
+        }
       }
-      resetControl();
+      reset();
 
       fetch('/recording').then(resp => {
         return resp.text();
       }).then(resp => {
-        if (resp == 'yes') {
+        if (resp == 'on') {
           recording = true;
-          resetControl();
+          reset();
         }
       });
       startRecordingCtrl.addEventListener('click', () => {
-        fetch('/control?recording=on').then(resp => {
+        fetch('/recording', {
+          method: 'post',
+          body: 'on',
+        }).then(resp => {
           recording = true;
-          resetControl();
+          reset();
         })
       });
       stopRecordingCtrl.addEventListener('click', () => {
-        fetch('/control?recording=off').then(resp => {
+        fetch('/recording', {
+          method: 'post',
+          body: 'off',
+        }).then(resp => {
           recording = false;
-          resetControl();
+          reset();
         });
       });
       lowFramerateCtrl.addEventListener('click', () => {
-        stream.src = '/mjpeg2';
         highFramerate = true;
-        resetControl();
+        reset();
       });
       highFramerateCtrl.addEventListener('click', () => {
-        stream.src = '/mjpeg';
         highFramerate = false;
-        resetControl();
+        reset();
       });
     });
     </script>

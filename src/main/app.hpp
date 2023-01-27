@@ -7,46 +7,79 @@
 
 namespace application {
 
-class AppLowFrameRateMjpegSender : public AppStreamReceiver {
+class AppMjpegSender : public AppStreamReceiver, public network::HttpProcessor {
 public:
-  AppLowFrameRateMjpegSender(network::HttpSender&, AppStreamDistributer&);
-  ~AppLowFrameRateMjpegSender() override;
+  AppMjpegSender(AppStreamDistributer&, network::HttpSender&);
+  ~AppMjpegSender() override;
+  void Process(network::HttpRequest&&) override;
+
+protected:
+  AppStreamDistributer& mjpegDistributer;
+  network::HttpSender& sender;
+};
+
+class AppLowFrameRateMjpegSender : public AppMjpegSender {
+public:
+  AppLowFrameRateMjpegSender(AppStreamDistributer&, network::HttpSender&);
   void Notify(std::string_view) override;
 
 private:
-  network::HttpSender& sender;
-  AppStreamDistributer& mjpegDistributer;
   int skipped{0};
 };
 
-class AppHighFrameRateMjpegSender : public AppStreamReceiver {
+class AppLowFrameRateMjpegSenderFactory : public network::HttpProcessorFactory {
 public:
-  AppHighFrameRateMjpegSender(network::HttpSender&, AppStreamDistributer&);
-  ~AppHighFrameRateMjpegSender() override;
-  void Notify(std::string_view) override;
+  explicit AppLowFrameRateMjpegSenderFactory(AppStreamDistributer&);
+  std::unique_ptr<network::HttpProcessor> Create(network::HttpSender&) const override;
 
 private:
-  network::HttpSender& sender;
-  AppStreamDistributer& mjpegDistributer;
+  AppStreamDistributer& distributer;
 };
 
-class AppEncodedStreamSender : public AppStreamReceiver, public codec::WriterProcessor {
+class AppHighFrameRateMjpegSender : public AppMjpegSender {
 public:
-  AppEncodedStreamSender(network::HttpSender&, AppStreamDistributer&, AppStreamTranscoderFactory&);
+  AppHighFrameRateMjpegSender(AppStreamDistributer&, network::HttpSender&);
+  void Notify(std::string_view) override;
+};
+
+class AppHighFrameRateMjpegSenderFactory : public network::HttpProcessorFactory {
+public:
+  explicit AppHighFrameRateMjpegSenderFactory(AppStreamDistributer&);
+  std::unique_ptr<network::HttpProcessor> Create(network::HttpSender&) const override;
+
+private:
+  AppStreamDistributer& distributer;
+};
+
+class AppEncodedStreamSender : public AppStreamReceiver, public codec::WriterProcessor, public network::HttpProcessor {
+public:
+  AppEncodedStreamSender(AppStreamDistributer&, AppStreamTranscoderFactory&, network::HttpSender&);
   ~AppEncodedStreamSender() override;
   void Notify(std::string_view) override;
   void WriteData(std::string_view) override;
+  void Process(network::HttpRequest&&) override;
+
+private:
   void RunTranscoder();
   void RunSender();
 
-private:
   common::ConcreteEventQueue<std::optional<std::string>> transcoderQueue;
   common::ConcreteEventQueue<std::optional<std::string>> senderQueue;
   std::thread transcoderThread;
   std::thread senderThread;
-  network::HttpSender& sender;
   AppStreamDistributer& mjpegDistributer;
   std::unique_ptr<AppStreamTranscoder> transcoder;
+  network::HttpSender& sender;
+};
+
+class AppEncodedStreamSenderFactory : public network::HttpProcessorFactory {
+public:
+  AppEncodedStreamSenderFactory(AppStreamDistributer&, AppStreamTranscoderFactory&);
+  std::unique_ptr<network::HttpProcessor> Create(network::HttpSender&) const override;
+
+private:
+  AppStreamDistributer& distributer;
+  AppStreamTranscoderFactory& transcoderFactory;
 };
 
 class AppStreamSnapshotSaver : public AppStreamReceiver {
@@ -78,40 +111,23 @@ private:
   mutable std::mutex confMut;
 };
 
-class AppLayer : public network::HttpProcessor {
+class AppHttpLayer {
 public:
-  AppLayer(network::HttpSender&, AppStreamDistributer&, AppStreamSnapshotSaver&, AppStreamRecorderController&,
-      AppStreamTranscoderFactory&);
-  AppLayer(const AppLayer&) = delete;
-  AppLayer(AppLayer&&) = delete;
-  AppLayer& operator=(const AppLayer&) = delete;
-  AppLayer& operator=(AppLayer&&) = delete;
-  ~AppLayer() override;
+  AppHttpLayer(AppStreamSnapshotSaver&, AppStreamRecorderController&);
+  AppHttpLayer(const AppHttpLayer&) = delete;
+  AppHttpLayer(AppHttpLayer&&) = delete;
+  AppHttpLayer& operator=(const AppHttpLayer&) = delete;
+  AppHttpLayer& operator=(AppHttpLayer&&) = delete;
+  ~AppHttpLayer() = default;
 
-  void Process(network::HttpRequest&&) override;
+  void GetIndex(network::HttpRequest&&, network::HttpSender&);
+  void GetSnapshot(network::HttpRequest&&, network::HttpSender&);
+  void GetRecording(network::HttpRequest&&, network::HttpSender&);
+  void SetRecording(network::HttpRequest&&, network::HttpSender&);
 
 private:
-  network::HttpResponse BuildPlainTextRequest(network::HttpStatus, std::string_view) const;
-
-  network::HttpSender& sender;
-  AppStreamDistributer& mjpegDistributer;
   AppStreamSnapshotSaver& snapshotSaver;
   AppStreamRecorderController& processorController;
-  AppStreamTranscoderFactory& transcoderFactory;
-  std::unique_ptr<AppStreamReceiver> streamSender;
-};
-
-class AppLayerFactory : public network::HttpProcessorFactory {
-public:
-  AppLayerFactory(
-      AppStreamDistributer&, AppStreamSnapshotSaver&, AppStreamRecorderController&, AppStreamTranscoderFactory&);
-  std::unique_ptr<network::HttpProcessor> Create(network::HttpSender&, network::ProtocolUpgrader&) const override;
-
-private:
-  AppStreamDistributer& mjpegDistributer;
-  AppStreamSnapshotSaver& snapshotSaver;
-  AppStreamRecorderController& recorderController;
-  AppStreamTranscoderFactory& transcoderFactory;
 };
 
 }  // namespace application

@@ -4,10 +4,65 @@
 
 namespace network {
 
+std::optional<WebsocketFrame> ConcreteWebsocketParser::Parse(std::string& payload) const {
+  int payloadLen = payload.length();
+  int requiredLen = headerLen;
+  if (payloadLen < requiredLen) {
+    return std::nullopt;
+  }
+  WebsocketFrame frame;
+  const auto* p = reinterpret_cast<const unsigned char*>(payload.data());
+  frame.fin = (p[0] >> 7) & 0b1;
+  frame.opcode = p[0] & 0b1111;
+  bool mask = (p[1] >> 7) & 0b1;
+  std::uint64_t len = p[1] & 0b1111111;
+  p += headerLen;
+  int payloadExtLen = 0;
+  if (len == 126) {
+    payloadExtLen = ext1Len;
+  }
+  if (len == 127) {
+    payloadExtLen = ext2Len;
+  }
+  requiredLen += payloadExtLen;
+  if (payloadLen < requiredLen) {
+    return std::nullopt;
+  }
+  if (payloadExtLen > 0) {
+    len = 0;
+    for (int i = 0; i < payloadExtLen; i++) {
+      len |= p[i] << (8 * (payloadExtLen - i - 1));
+    }
+    p += payloadExtLen;
+  }
+  unsigned char maskKey[maskLen] = {0};
+  if (mask) {
+    requiredLen += maskLen;
+    if (payloadLen < requiredLen) {
+      return std::nullopt;
+    }
+    for (int i = 0; i < maskLen; i++) {
+      maskKey[i] = p[i];
+    }
+    p += maskLen;
+  }
+  requiredLen += len;
+  if (payloadLen < requiredLen) {
+    return std::nullopt;
+  }
+  std::string data{p, p + len};
+  for (std::uint64_t i = 0; i < len; i++) {
+    data[i] ^= reinterpret_cast<const std::uint8_t*>(&maskKey)[i % maskLen];
+  }
+  frame.payload = std::move(data);
+  payload.erase(0, requiredLen);
+  return frame;
+}
+
 ConcreteWebsocketSender::ConcreteWebsocketSender(TcpSender& sender) : sender{sender} {
 }
 
-void ConcreteWebsocketSender::Send(WebsocketFrame&& frame) {
+void ConcreteWebsocketSender::Send(WebsocketFrame&& frame) const {
   std::string payload;
   payload += static_cast<unsigned char>((frame.fin << 7) | (frame.opcode));
   std::uint64_t payloadLen = frame.payload.length();
@@ -28,7 +83,7 @@ void ConcreteWebsocketSender::Send(WebsocketFrame&& frame) {
   sender.Send(payload);
 }
 
-void ConcreteWebsocketSender::Close() {
+void ConcreteWebsocketSender::Close() const {
   sender.Close();
 }
 
@@ -50,50 +105,35 @@ std::optional<HttpResponse> WebsocketHandshakeBuilder::Build() const {
     return std::nullopt;
   }
   auto accept = common::Base64(common::SHA1(keyIt->second + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"));
-  network::HttpResponse resp;
-  resp.status = network::HttpStatus::SwitchingProtocols;
+  HttpResponse resp;
+  resp.status = HttpStatus::SwitchingProtocols;
   resp.headers.emplace("Upgrade", "websocket");
   resp.headers.emplace("Connection", "Upgrade");
   resp.headers.emplace("Sec-WebSocket-Accept", std::move(accept));
   return resp;
 }
 
-WebsocketLayer::WebsocketLayer(std::unique_ptr<network::WebsocketFrameParser> parser,
-    std::unique_ptr<network::WebsocketFrameSender> sender, WebsocketProcessorFactory& processorFactory)
-    : parser{std::move(parser)}, sender{std::move(sender)}, processorFactory{processorFactory} {
+WebsocketLayer::WebsocketLayer(WebsocketParser& parser, WebsocketSender& sender, WebsocketProcessor& processor)
+    : parser{parser}, sender{sender}, processor{processor} {
 }
 
 WebsocketLayer::~WebsocketLayer() {
-  processor.reset();
-  parser.reset();
-  sender.reset();
 }
 
-bool WebsocketLayer::TryProcess(std::string& payload) {
-  auto frame = parser->Parse(payload);
+bool WebsocketLayer::TryProcess(std::string& payload) const {
+  auto frame = parser.Parse(payload);
   if (not frame) {
     return false;
   }
   spdlog::debug("websocket received frame: fin = {}, opcode = {}", frame->fin, frame->opcode);
   spdlog::debug("websocket received message: {}", frame->payload);
+  constexpr int opClose{8};
   if (frame->opcode == opClose) {
-    sender->Close();
+    sender.Close();
     return true;
   }
-  processor = processorFactory.Create(*sender);
-  processor->Process(std::move(*frame));
+  processor.Process(std::move(*frame));
   return true;
-}
-
-ConcreteWebsocketLayerFactory::ConcreteWebsocketLayerFactory(
-    std::unique_ptr<WebsocketProcessorFactory> processorFactory)
-    : processorFactory{std::move(processorFactory)} {
-}
-
-std::unique_ptr<ProtocolProcessor> ConcreteWebsocketLayerFactory::Create(TcpSender& tcpSender) const {
-  auto parser = std::make_unique<ConcreteWebsocketFrameParser>();
-  auto sender = std::make_unique<ConcreteWebsocketSender>(tcpSender);
-  return std::make_unique<WebsocketLayer>(std::move(parser), std::move(sender), *processorFactory);
 }
 
 }  // namespace network

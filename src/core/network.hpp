@@ -11,8 +11,8 @@ namespace network {
 class TcpSenderSupervisor {
 public:
   virtual ~TcpSenderSupervisor() = default;
-  virtual void MarkSenderPending(int) = 0;
-  virtual void UnmarkSenderPending(int) = 0;
+  virtual void MarkSenderPending(int) const = 0;
+  virtual void UnmarkSenderPending(int) const = 0;
 };
 
 class TcpSender {
@@ -45,20 +45,10 @@ public:
 class ProtocolProcessor {
 public:
   virtual ~ProtocolProcessor() = default;
-  virtual bool TryProcess(std::string&) = 0;
+  virtual bool TryProcess(std::string&) const = 0;
 };
 
-class HttpLayerFactory {
-public:
-  virtual ~HttpLayerFactory() = default;
-  virtual std::unique_ptr<ProtocolProcessor> Create(TcpSender&, ProtocolUpgrader&) const = 0;
-};
-
-class WebsocketLayerFactory {
-public:
-  virtual ~WebsocketLayerFactory() = default;
-  virtual std::unique_ptr<ProtocolProcessor> Create(TcpSender&) const = 0;
-};
+enum class HttpMethod { PUT, GET, POST, DELETE };
 
 using HttpQuery = std::unordered_map<std::string, std::string>;
 
@@ -70,7 +60,7 @@ struct HttpHeader {
 using HttpHeaders = std::unordered_map<std::string, std::string>;
 
 struct HttpRequest {
-  std::string method;
+  HttpMethod method;
   std::string uri;
   std::string version;
   HttpHeaders headers;
@@ -119,13 +109,13 @@ public:
 class HttpSender {
 public:
   virtual ~HttpSender() = default;
-  virtual void Send(HttpResponse&&) = 0;
-  virtual void Send(FileHttpResponse&&) = 0;
-  virtual void Send(MixedReplaceHeaderHttpResponse&&) = 0;
-  virtual void Send(MixedReplaceDataHttpResponse&&) = 0;
-  virtual void Send(ChunkedHeaderHttpResponse&&) = 0;
-  virtual void Send(ChunkedDataHttpResponse&&) = 0;
-  virtual void Close() = 0;
+  virtual void Send(HttpResponse&&) const = 0;
+  virtual void Send(FileHttpResponse&&) const = 0;
+  virtual void Send(MixedReplaceHeaderHttpResponse&&) const = 0;
+  virtual void Send(MixedReplaceDataHttpResponse&&) const = 0;
+  virtual void Send(ChunkedHeaderHttpResponse&&) const = 0;
+  virtual void Send(ChunkedDataHttpResponse&&) const = 0;
+  virtual void Close() const = 0;
 };
 
 class HttpProcessor {
@@ -137,7 +127,7 @@ public:
 class HttpProcessorFactory {
 public:
   virtual ~HttpProcessorFactory() = default;
-  virtual std::unique_ptr<HttpProcessor> Create(HttpSender&, ProtocolUpgrader&) const = 0;
+  virtual std::unique_ptr<HttpProcessor> Create(HttpSender&) const = 0;
 };
 
 struct WebsocketFrame {
@@ -146,17 +136,17 @@ struct WebsocketFrame {
   std::string payload;
 };
 
-class WebsocketFrameParser {
+class WebsocketParser {
 public:
-  virtual ~WebsocketFrameParser() = default;
+  virtual ~WebsocketParser() = default;
   virtual std::optional<WebsocketFrame> Parse(std::string&) const = 0;
 };
 
-class WebsocketFrameSender {
+class WebsocketSender {
 public:
-  virtual ~WebsocketFrameSender() = default;
-  virtual void Send(WebsocketFrame&&) = 0;
-  virtual void Close() = 0;
+  virtual ~WebsocketSender() = default;
+  virtual void Send(WebsocketFrame&&) const = 0;
+  virtual void Close() const = 0;
 };
 
 class WebsocketProcessor {
@@ -168,7 +158,18 @@ public:
 class WebsocketProcessorFactory {
 public:
   virtual ~WebsocketProcessorFactory() = default;
-  virtual std::unique_ptr<WebsocketProcessor> Create(WebsocketFrameSender&) const = 0;
+  virtual std::unique_ptr<WebsocketProcessor> Create(WebsocketSender&) const = 0;
+};
+
+class Router : public HttpProcessor, public WebsocketProcessor {
+public:
+  virtual ~Router() = default;
+};
+
+class RouterFactory {
+public:
+  virtual ~RouterFactory() = default;
+  virtual std::unique_ptr<Router> Create(HttpSender&, WebsocketSender&, ProtocolUpgrader&) const = 0;
 };
 
 }  // namespace network

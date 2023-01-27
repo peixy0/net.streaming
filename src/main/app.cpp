@@ -1,17 +1,36 @@
 #include "app.hpp"
 #include <spdlog/spdlog.h>
 
+namespace {
+
+network::HttpResponse BuildPlainTextRequest(network::HttpStatus status, std::string_view body) {
+  network::HttpResponse resp;
+  resp.status = status;
+  resp.headers.emplace("Content-Type", "text/plain; charset=UTF-8");
+  resp.body = body;
+  return resp;
+}
+
+}  // namespace
+
 namespace application {
 
-AppLowFrameRateMjpegSender::AppLowFrameRateMjpegSender(
-    network::HttpSender& sender, AppStreamDistributer& mjpegDistributer)
-    : sender{sender}, mjpegDistributer{mjpegDistributer} {
+AppMjpegSender::AppMjpegSender(AppStreamDistributer& mjpegDistributer, network::HttpSender& sender)
+    : mjpegDistributer{mjpegDistributer}, sender{sender} {
+}
+
+AppMjpegSender::~AppMjpegSender() {
+  mjpegDistributer.RemoveSubscriber(this);
+}
+
+void AppMjpegSender::Process(network::HttpRequest&&) {
   sender.Send(network::MixedReplaceHeaderHttpResponse{});
   mjpegDistributer.AddSubscriber(this);
 }
 
-AppLowFrameRateMjpegSender::~AppLowFrameRateMjpegSender() {
-  mjpegDistributer.RemoveSubscriber(this);
+AppLowFrameRateMjpegSender::AppLowFrameRateMjpegSender(
+    AppStreamDistributer& mjpegDistributer, network::HttpSender& sender)
+    : AppMjpegSender{mjpegDistributer, sender} {
 }
 
 void AppLowFrameRateMjpegSender::Notify(std::string_view buffer) {
@@ -25,15 +44,17 @@ void AppLowFrameRateMjpegSender::Notify(std::string_view buffer) {
   return sender.Send(std::move(resp));
 }
 
-AppHighFrameRateMjpegSender::AppHighFrameRateMjpegSender(
-    network::HttpSender& sender, AppStreamDistributer& mjpegDistributer)
-    : sender{sender}, mjpegDistributer{mjpegDistributer} {
-  sender.Send(network::MixedReplaceHeaderHttpResponse{});
-  mjpegDistributer.AddSubscriber(this);
+AppLowFrameRateMjpegSenderFactory::AppLowFrameRateMjpegSenderFactory(AppStreamDistributer& distributer)
+    : distributer{distributer} {
 }
 
-AppHighFrameRateMjpegSender::~AppHighFrameRateMjpegSender() {
-  mjpegDistributer.RemoveSubscriber(this);
+std::unique_ptr<network::HttpProcessor> AppLowFrameRateMjpegSenderFactory::Create(network::HttpSender& sender) const {
+  return std::make_unique<AppLowFrameRateMjpegSender>(distributer, sender);
+}
+
+AppHighFrameRateMjpegSender::AppHighFrameRateMjpegSender(
+    AppStreamDistributer& mjpegDistributer, network::HttpSender& sender)
+    : AppMjpegSender{mjpegDistributer, sender} {
 }
 
 void AppHighFrameRateMjpegSender::Notify(std::string_view buffer) {
@@ -43,14 +64,19 @@ void AppHighFrameRateMjpegSender::Notify(std::string_view buffer) {
   return sender.Send(std::move(resp));
 }
 
+AppHighFrameRateMjpegSenderFactory::AppHighFrameRateMjpegSenderFactory(AppStreamDistributer& distributer)
+    : distributer{distributer} {
+}
+
+std::unique_ptr<network::HttpProcessor> AppHighFrameRateMjpegSenderFactory::Create(network::HttpSender& sender) const {
+  return std::make_unique<AppHighFrameRateMjpegSender>(distributer, sender);
+}
+
 AppEncodedStreamSender::AppEncodedStreamSender(
-    network::HttpSender& sender, AppStreamDistributer& mjpegDistributer, AppStreamTranscoderFactory& transcoderFactory)
-    : sender{sender}, mjpegDistributer{mjpegDistributer}, transcoder{transcoderFactory.Create(*this)} {
-  network::ChunkedHeaderHttpResponse resp;
-  sender.Send(std::move(resp));
+    AppStreamDistributer& mjpegDistributer, AppStreamTranscoderFactory& transcoderFactory, network::HttpSender& sender)
+    : mjpegDistributer{mjpegDistributer}, transcoder{transcoderFactory.Create(*this)}, sender{sender} {
   transcoderThread = std::thread([this] { RunTranscoder(); });
   senderThread = std::thread([this] { RunSender(); });
-  mjpegDistributer.AddSubscriber(this);
 }
 
 AppEncodedStreamSender::~AppEncodedStreamSender() {
@@ -68,6 +94,12 @@ void AppEncodedStreamSender::Notify(std::string_view buffer) {
 
 void AppEncodedStreamSender::WriteData(std::string_view buffer) {
   senderQueue.Push(std::make_optional<std::string>(buffer));
+}
+
+void AppEncodedStreamSender::Process(network::HttpRequest&&) {
+  network::ChunkedHeaderHttpResponse resp;
+  sender.Send(std::move(resp));
+  mjpegDistributer.AddSubscriber(this);
 }
 
 void AppEncodedStreamSender::RunTranscoder() {
@@ -95,6 +127,15 @@ void AppEncodedStreamSender::RunSender() {
     buffer.reserve(batchedBufferSize);
     buffer += std::move(*bufferOpt);
   }
+}
+
+AppEncodedStreamSenderFactory::AppEncodedStreamSenderFactory(
+    AppStreamDistributer& distributer, AppStreamTranscoderFactory& transcoderFactory)
+    : distributer{distributer}, transcoderFactory{transcoderFactory} {
+}
+
+std::unique_ptr<network::HttpProcessor> AppEncodedStreamSenderFactory::Create(network::HttpSender& sender) const {
+  return std::make_unique<AppEncodedStreamSender>(distributer, transcoderFactory, sender);
 }
 
 AppStreamSnapshotSaver::AppStreamSnapshotSaver(AppStreamDistributer& distributer) : distributer{distributer} {
@@ -150,86 +191,38 @@ bool AppStreamRecorderController::IsRecording() const {
   return isRecording;
 }
 
-AppLayer::AppLayer(network::HttpSender& sender, AppStreamDistributer& mjpegDistributer,
-    AppStreamSnapshotSaver& snapshotSaver, AppStreamRecorderController& recorderController,
-    AppStreamTranscoderFactory& transcoderFactory)
-    : sender{sender},
-      mjpegDistributer{mjpegDistributer},
-      snapshotSaver{snapshotSaver},
-      processorController{recorderController},
-      transcoderFactory{transcoderFactory} {
+AppHttpLayer::AppHttpLayer(AppStreamSnapshotSaver& snapshotSaver, AppStreamRecorderController& recorderController)
+    : snapshotSaver{snapshotSaver}, processorController{recorderController} {
 }
 
-AppLayer::~AppLayer() {
-  streamSender.reset();
+void AppHttpLayer::GetIndex(network::HttpRequest&&, network::HttpSender& sender) {
+  network::FileHttpResponse resp;
+  resp.path = "index.html";
+  resp.headers.emplace("Content-Type", "text/html");
+  return sender.Send(std::move(resp));
 }
 
-void AppLayer::Process(network::HttpRequest&& req) {
-  spdlog::debug("app received request {} {} {}", req.method, req.uri, req.version);
-  if (req.uri == "/") {
-    network::FileHttpResponse resp;
-    resp.path = "index.html";
-    resp.headers.emplace("Content-Type", "text/html");
-    return sender.Send(std::move(resp));
-  }
-  if (req.uri == "/snapshot") {
-    const auto payload = snapshotSaver.GetSnapshot();
-    network::HttpResponse resp;
-    resp.status = network::HttpStatus::OK;
-    resp.headers.emplace("Content-Type", "image/jpeg");
-    resp.body = std::move(payload);
-    return sender.Send(std::move(resp));
-  }
-  if (req.uri == "/mjpeg") {
-    streamSender = std::make_unique<AppLowFrameRateMjpegSender>(sender, mjpegDistributer);
-    return;
-  }
-  if (req.uri == "/mjpeg2") {
-    streamSender = std::make_unique<AppHighFrameRateMjpegSender>(sender, mjpegDistributer);
-    return;
-  }
-  if (req.uri == "/encoded") {
-    streamSender = std::make_unique<AppEncodedStreamSender>(sender, mjpegDistributer, transcoderFactory);
-    return;
-  }
-  if (req.uri == "/recording") {
-    return sender.Send(
-        BuildPlainTextRequest(network::HttpStatus::OK, processorController.IsRecording() ? "yes" : "no"));
-  }
-  if (req.uri == "/control") {
-    const auto recordingControl = req.query.find("recording");
-    if (recordingControl != req.query.cend()) {
-      if (recordingControl->second == "on") {
-        processorController.Start();
-      }
-      if (recordingControl->second == "off") {
-        processorController.Stop();
-      }
-    }
-    return sender.Send(BuildPlainTextRequest(network::HttpStatus::OK, "OK"));
-  }
-  return sender.Send(BuildPlainTextRequest(network::HttpStatus::NotFound, "Not Found"));
-}
-
-network::HttpResponse AppLayer::BuildPlainTextRequest(network::HttpStatus status, std::string_view body) const {
+void AppHttpLayer::GetSnapshot(network::HttpRequest&&, network::HttpSender& sender) {
+  const auto payload = snapshotSaver.GetSnapshot();
   network::HttpResponse resp;
-  resp.status = status;
-  resp.headers.emplace("Content-Type", "text/plain; charset=UTF-8");
-  resp.body = body;
-  return resp;
+  resp.status = network::HttpStatus::OK;
+  resp.headers.emplace("Content-Type", "image/jpeg");
+  resp.body = std::move(payload);
+  return sender.Send(std::move(resp));
 }
 
-AppLayerFactory::AppLayerFactory(AppStreamDistributer& mjpegDistributer, AppStreamSnapshotSaver& snapshotSaver,
-    AppStreamRecorderController& recorderController, AppStreamTranscoderFactory& transcoderFactory)
-    : mjpegDistributer{mjpegDistributer},
-      snapshotSaver{snapshotSaver},
-      recorderController{recorderController},
-      transcoderFactory{transcoderFactory} {
+void AppHttpLayer::GetRecording(network::HttpRequest&&, network::HttpSender& sender) {
+  return sender.Send(BuildPlainTextRequest(network::HttpStatus::OK, processorController.IsRecording() ? "on" : "off"));
 }
 
-std::unique_ptr<network::HttpProcessor> AppLayerFactory::Create(
-    network::HttpSender& sender, network::ProtocolUpgrader&) const {
-  return std::make_unique<AppLayer>(sender, mjpegDistributer, snapshotSaver, recorderController, transcoderFactory);
+void AppHttpLayer::SetRecording(network::HttpRequest&& req, network::HttpSender& sender) {
+  if (req.body == "on") {
+    processorController.Start();
+  }
+  if (req.body == "off") {
+    processorController.Stop();
+  }
+  return sender.Send(BuildPlainTextRequest(network::HttpStatus::OK, "OK"));
 }
 
 }  // namespace application

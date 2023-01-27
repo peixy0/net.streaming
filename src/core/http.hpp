@@ -1,54 +1,66 @@
 #pragma once
+#include <optional>
 #include "network.hpp"
-#include "parser.hpp"
 
 namespace network {
+
+class ConcreteHttpParser : public HttpParser {
+public:
+  ConcreteHttpParser() = default;
+  ConcreteHttpParser(const ConcreteHttpParser&) = delete;
+  ConcreteHttpParser(ConcreteHttpParser&&) = delete;
+  ConcreteHttpParser& operator=(const ConcreteHttpParser&) = delete;
+  ConcreteHttpParser& operator=(ConcreteHttpParser&&) = delete;
+  ~ConcreteHttpParser() override = default;
+
+  std::optional<HttpRequest> Parse(std::string&) const override;
+
+private:
+  void Reset();
+  void SkipWhiteSpaces(std::string&) const;
+  bool Consume(std::string&, std::string_view) const;
+  std::optional<std::string> ParseToken(std::string&) const;
+  bool ParseHeaders(std::string&, HttpHeaders&) const;
+  std::optional<HttpHeader> ParseHeader(std::string&) const;
+  std::optional<std::string> ParseHeaderField(std::string&) const;
+  std::optional<std::string> ParseLine(std::string&) const;
+  size_t FindContentLength(const HttpHeaders&) const;
+  std::string ParseUriBase(std::string&) const;
+  std::string ParseQueryKey(std::string&) const;
+  std::string ParseQueryValue(std::string&) const;
+  HttpQuery ParseQueryString(std::string&) const;
+};
 
 class ConcreteHttpSender : public HttpSender {
 public:
   ConcreteHttpSender(TcpSender&);
-  void Send(HttpResponse&&) override;
-  void Send(FileHttpResponse&&) override;
-  void Send(MixedReplaceHeaderHttpResponse&&) override;
-  void Send(MixedReplaceDataHttpResponse&&) override;
-  void Send(ChunkedHeaderHttpResponse&&) override;
-  void Send(ChunkedDataHttpResponse&&) override;
-  void Close() override;
+  void Send(HttpResponse&&) const override;
+  void Send(FileHttpResponse&&) const override;
+  void Send(MixedReplaceHeaderHttpResponse&&) const override;
+  void Send(MixedReplaceDataHttpResponse&&) const override;
+  void Send(ChunkedHeaderHttpResponse&&) const override;
+  void Send(ChunkedDataHttpResponse&&) const override;
+  void Close() const override;
 
 private:
   TcpSender& sender;
 };
 
-class HttpLayer : public network::ProtocolProcessor {
+class HttpLayer : public ProtocolProcessor {
 public:
-  HttpLayer(std::unique_ptr<HttpParser>, std::unique_ptr<HttpSender>, ProtocolUpgrader&, HttpProcessorFactory&);
+  HttpLayer(HttpParser&, HttpSender&, HttpProcessor&);
   HttpLayer(const HttpLayer&) = delete;
   HttpLayer(HttpLayer&&) = delete;
   HttpLayer& operator=(const HttpLayer&) = delete;
   HttpLayer& operator=(HttpLayer&&) = delete;
   ~HttpLayer() override;
-  bool TryProcess(std::string&) override;
+
+  bool TryProcess(std::string&) const override;
 
 private:
-  std::unique_ptr<HttpParser> parser;
-  std::unique_ptr<HttpSender> sender;
-  ProtocolUpgrader& upgrader;
-  HttpProcessorFactory& processorFactory;
-  std::unique_ptr<HttpProcessor> processor;
-};
-
-class ConcreteHttpLayerFactory : public network::HttpLayerFactory {
-public:
-  explicit ConcreteHttpLayerFactory(std::unique_ptr<HttpProcessorFactory>);
-  ConcreteHttpLayerFactory(const ConcreteHttpLayerFactory&) = delete;
-  ConcreteHttpLayerFactory(ConcreteHttpLayerFactory&&) = delete;
-  ConcreteHttpLayerFactory& operator=(const ConcreteHttpLayerFactory&) = delete;
-  ConcreteHttpLayerFactory& operator=(ConcreteHttpLayerFactory&&) = delete;
-  ~ConcreteHttpLayerFactory() override = default;
-  std::unique_ptr<network::ProtocolProcessor> Create(TcpSender&, ProtocolUpgrader&) const override;
-
-private:
-  std::unique_ptr<HttpProcessorFactory> processorFactory;
+  HttpParser& parser;
+  HttpSender& sender;
+  HttpProcessor& processor;
 };
 
 }  // namespace network

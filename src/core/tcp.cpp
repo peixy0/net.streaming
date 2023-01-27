@@ -150,11 +150,11 @@ TcpConnectionContext::~TcpConnectionContext() {
   sender.reset();
 }
 
-TcpProcessor& TcpConnectionContext::GetProcessor() {
+TcpProcessor& TcpConnectionContext::GetProcessor() const {
   return *processor;
 }
 
-TcpSender& TcpConnectionContext::GetSender() {
+TcpSender& TcpConnectionContext::GetSender() const {
   return *sender;
 }
 
@@ -181,7 +181,7 @@ void TcpLayer::Start() {
   StartLoop();
 }
 
-void TcpLayer::MarkReceiverPending(int peer) {
+void TcpLayer::MarkReceiverPending(int peer) const {
   epoll_event event;
   event.events = EPOLLIN;
   event.data.fd = peer;
@@ -192,7 +192,7 @@ void TcpLayer::MarkReceiverPending(int peer) {
   }
 }
 
-void TcpLayer::MarkSenderPending(int peer) {
+void TcpLayer::MarkSenderPending(int peer) const {
   spdlog::debug("tcp mark sender pending: {}", peer);
   epoll_event event;
   event.events = EPOLLIN | EPOLLOUT;
@@ -204,7 +204,7 @@ void TcpLayer::MarkSenderPending(int peer) {
   }
 }
 
-void TcpLayer::UnmarkSenderPending(int peer) {
+void TcpLayer::UnmarkSenderPending(int peer) const {
   spdlog::debug("tcp unmark sender pending: {}", peer);
   epoll_event event;
   event.events = EPOLLIN;
@@ -216,7 +216,7 @@ void TcpLayer::UnmarkSenderPending(int peer) {
   }
 }
 
-void TcpLayer::SetNonBlocking(int s) {
+void TcpLayer::SetNonBlocking(int s) const {
   int flags = fcntl(s, F_GETFL);
   if (flags < 0) {
     spdlog::error("tcp fcntl(): {}", strerror(errno));
@@ -305,14 +305,14 @@ void TcpLayer::ReadFromPeer(int peerDescriptor) {
   processor.Process({buf, buf + r});
 }
 
-void TcpLayer::SendToPeer(int peerDescriptor) {
+void TcpLayer::SendToPeer(int peerDescriptor) const {
   auto it = connections.find(peerDescriptor);
   if (it == connections.end()) {
     spdlog::error("tcp send to unexpected peer: {}", peerDescriptor);
     return;
   }
 
-  auto& context = std::get<TcpConnectionContext>(*it);
+  const auto& context = std::get<TcpConnectionContext>(*it);
   context.GetSender().SendBuffered();
 }
 
@@ -320,7 +320,7 @@ Tcp4Layer::Tcp4Layer(std::string_view host, std::uint16_t port, std::unique_ptr<
     : TcpLayer{std::move(processorFactory)}, host{host}, port{port} {
 }
 
-int Tcp4Layer::CreateSocket() {
+int Tcp4Layer::CreateSocket() const {
   const int one = 1;
   int s = socket(AF_INET, SOCK_STREAM, 0);
   if (s < 0) {

@@ -10,10 +10,11 @@ add_library(
   http.cpp
   http.hpp
   network.hpp
-  parser.cpp
-  parser.hpp
   protocol.cpp
   protocol.hpp
+  router.hpp
+  server.cpp
+  server.hpp
   tcp.cpp
   tcp.hpp
   video.cpp
