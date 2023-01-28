@@ -6,7 +6,7 @@
 
 namespace network {
 
-class ProtocolLayer : public TcpProcessor, public ProtocolUpgrader {
+class ProtocolLayer final : public TcpProcessor, public ProtocolUpgrader {
 public:
   ProtocolLayer(TcpSender&, RouterFactory&);
   ProtocolLayer(const ProtocolLayer&) = delete;
@@ -28,7 +28,7 @@ private:
   std::string buffer;
 };
 
-class ProtocolLayerFactory : public TcpProcessorFactory {
+class ProtocolLayerFactory final : public TcpProcessorFactory {
 public:
   explicit ProtocolLayerFactory(RouterFactory&);
   ProtocolLayerFactory(const ProtocolLayerFactory&) = delete;

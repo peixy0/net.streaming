@@ -48,7 +48,7 @@ private:
   std::vector<std::tuple<std::regex, std::unique_ptr<WebsocketProcessorFactory>>> mapping;
 };
 
-class ConcreteRouter : public Router {
+class ConcreteRouter final : public Router {
 public:
   ConcreteRouter(HttpSender& httpSender, HttpRouteMapping& httpMapping, WebsocketSender& websocketSender,
       WebsocketRouteMapping& websocketMapping, ProtocolUpgrader& upgrader)
@@ -109,7 +109,7 @@ private:
   std::unique_ptr<WebsocketProcessor> websocketProcessor;
 };
 
-class ConcreteRouterFactory : public RouterFactory {
+class ConcreteRouterFactory final : public RouterFactory {
 public:
   ConcreteRouterFactory(HttpRouteMapping& httpMapping, WebsocketRouteMapping& websocketMapping)
       : httpMapping{httpMapping}, websocketMapping{websocketMapping} {

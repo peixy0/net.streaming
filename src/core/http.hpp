@@ -4,7 +4,7 @@
 
 namespace network {
 
-class ConcreteHttpParser : public HttpParser {
+class ConcreteHttpParser final : public HttpParser {
 public:
   ConcreteHttpParser() = default;
   ConcreteHttpParser(const ConcreteHttpParser&) = delete;
@@ -31,7 +31,7 @@ private:
   HttpQuery ParseQueryString(std::string&) const;
 };
 
-class ConcreteHttpSender : public HttpSender {
+class ConcreteHttpSender final : public HttpSender {
 public:
   ConcreteHttpSender(TcpSender&);
   void Send(HttpResponse&&) const override;
@@ -46,7 +46,7 @@ private:
   TcpSender& sender;
 };
 
-class HttpLayer : public ProtocolProcessor {
+class HttpLayer final : public ProtocolProcessor {
 public:
   HttpLayer(HttpParser&, HttpSender&, HttpProcessor&);
   HttpLayer(const HttpLayer&) = delete;

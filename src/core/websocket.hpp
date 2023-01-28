@@ -4,7 +4,7 @@
 
 namespace network {
 
-class ConcreteWebsocketParser : public WebsocketParser {
+class ConcreteWebsocketParser final : public WebsocketParser {
 public:
   ConcreteWebsocketParser() = default;
   ConcreteWebsocketParser(const ConcreteWebsocketParser&) = delete;
@@ -22,7 +22,7 @@ private:
   static constexpr std::uint8_t ext2Len = 8;
 };
 
-class ConcreteWebsocketSender : public WebsocketSender {
+class ConcreteWebsocketSender final : public WebsocketSender {
 public:
   explicit ConcreteWebsocketSender(TcpSender&);
   ConcreteWebsocketSender(const ConcreteWebsocketSender&) = delete;
@@ -47,7 +47,7 @@ private:
   const HttpRequest& request;
 };
 
-class WebsocketLayer : public ProtocolProcessor {
+class WebsocketLayer final : public ProtocolProcessor {
 public:
   WebsocketLayer(WebsocketParser&, WebsocketSender&, WebsocketProcessor&);
   WebsocketLayer(const WebsocketLayer&) = delete;

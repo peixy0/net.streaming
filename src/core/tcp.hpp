@@ -43,7 +43,7 @@ private:
 
 using TcpSendOperation = std::variant<TcpSendBuffer, TcpSendFile>;
 
-class ConcreteTcpSender : public TcpSender {
+class ConcreteTcpSender final : public TcpSender {
 public:
   ConcreteTcpSender(int, TcpSenderSupervisor&);
   ConcreteTcpSender(const ConcreteTcpSender&) = delete;
@@ -117,7 +117,7 @@ private:
   std::unordered_map<int, TcpConnectionContext> connections;
 };
 
-class Tcp4Layer : public TcpLayer {
+class Tcp4Layer final : public TcpLayer {
 public:
   Tcp4Layer(std::string_view, std::uint16_t, std::unique_ptr<TcpProcessorFactory>);
 

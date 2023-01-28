@@ -18,7 +18,7 @@ public:
 };
 
 template <typename Event>
-class ConcreteEventQueue : public EventQueue<Event> {
+class ConcreteEventQueue final : public EventQueue<Event> {
 public:
   ConcreteEventQueue() = default;
 
