@@ -63,6 +63,7 @@ private:
   void RunTranscoder();
   void RunSender();
 
+  static constexpr int batchedBufferSize = 1 << 18;
   common::ConcreteEventQueue<std::optional<std::string>> transcoderQueue;
   common::ConcreteEventQueue<std::optional<std::string>> senderQueue;
   std::thread transcoderThread;

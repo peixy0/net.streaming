@@ -25,7 +25,6 @@ public:
   void Push(Event&& event) override {
     std::unique_lock lock{mut};
     events.emplace_back(std::move(event));
-    ++bufferSize;
     lock.unlock();
     cv.notify_one();
   }
@@ -35,18 +34,16 @@ public:
     cv.wait(lock, [this] { return not events.empty(); });
     auto ev = std::move(events.front());
     events.pop_front();
-    --bufferSize;
     return ev;
   }
 
   int Size() const override {
     std::lock_guard lock{mut};
-    return bufferSize;
+    return events.size();
   }
 
 private:
   std::deque<Event> events;
-  int bufferSize{0};
   mutable std::mutex mut;
   std::condition_variable cv;
 };

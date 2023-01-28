@@ -115,7 +115,6 @@ void AppEncodedStreamSender::RunTranscoder() {
 void AppEncodedStreamSender::RunSender() {
   std::optional<std::string> bufferOpt;
   std::string buffer;
-  constexpr int batchedBufferSize = 1 << 18;
   buffer.reserve(batchedBufferSize);
   while ((bufferOpt = senderQueue.Pop()) != std::nullopt) {
     if (buffer.size() + bufferOpt->size() <= batchedBufferSize) {

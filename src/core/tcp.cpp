@@ -102,6 +102,10 @@ void ConcreteTcpSender::SendBuffered() {
 
 void ConcreteTcpSender::Send(std::string_view buf) {
   std::lock_guard lock{senderMut};
+  if (buffered.size() > maxBufferedSize) {
+    Close();
+    return;
+  }
   TcpSendBuffer op{peer, buf};
   buffered.emplace_back(std::move(op));
   MarkPending();
@@ -109,6 +113,10 @@ void ConcreteTcpSender::Send(std::string_view buf) {
 
 void ConcreteTcpSender::Send(os::File file) {
   std::lock_guard lock{senderMut};
+  if (buffered.size() > maxBufferedSize) {
+    Close();
+    return;
+  }
   TcpSendFile op{peer, std::move(file)};
   buffered.emplace_back(std::move(op));
   MarkPending();
