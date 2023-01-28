@@ -28,7 +28,7 @@ public:
   virtual ~StreamProcessor() = default;
 };
 
-struct StreamOptions {
+struct CapturerOptions {
   std::uint32_t width;
   std::uint32_t height;
   std::uint32_t framerate;
@@ -36,13 +36,13 @@ struct StreamOptions {
 
 class Stream {
 public:
-  Stream(int fd, const StreamOptions&);
+  Stream(int fd, const CapturerOptions&);
   Stream(const Stream&) = delete;
   ~Stream();
   void ProcessFrame(StreamProcessor&) const;
 
 private:
-  void SetParameters(const StreamOptions&) const;
+  void SetParameters(const CapturerOptions&) const;
   void BindBuffers();
   void StartStreaming();
   void StopStreaming() const;
@@ -57,7 +57,7 @@ public:
   explicit Device(std::string_view deviceName);
   Device(const Device&) = delete;
   ~Device();
-  Stream GetStream(const StreamOptions&) const;
+  Stream GetStream(const CapturerOptions&) const;
 
 private:
   int fd;

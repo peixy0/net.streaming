@@ -2,7 +2,7 @@ server:
     address: 0.0.0.0
     port: 13099
 
-stream:
+capturer:
     codec: mjpeg
     pixfmt: YUVJ422
     width: 1280
@@ -13,12 +13,12 @@ recorder:
     codec: h264_v4l2m2m
     pixfmt: YUV420
     format: mp4
-    maxRecordingTimeInSeconds: 600
     width: 1280
     height: 720
     bitrate: 8000000
+    maxRecordingTimeInSeconds: 600
 
-encodedstream:
+encoder:
     codec: h264_v4l2m2m
     pixfmt: YUV420
     format: mpegts

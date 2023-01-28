@@ -93,13 +93,13 @@ private:
 
 class AppStreamCapturerRunner : public video::StreamProcessor {
 public:
-  AppStreamCapturerRunner(const video::StreamOptions&, AppStreamDistributer&);
+  AppStreamCapturerRunner(const video::CapturerOptions&, AppStreamDistributer&);
   void Run();
   void ProcessFrame(std::string_view) override;
 
 private:
-  const video::StreamOptions streamOptions;
-  std::thread streamThread;
+  const video::CapturerOptions capturerOptions;
+  std::thread capturerThread;
   AppStreamDistributer& streamDistributer;
 };
 

@@ -47,7 +47,7 @@ DeviceBuffer::~DeviceBuffer() {
   spdlog::debug("video buffer unmapped");
 }
 
-Stream::Stream(int fd, const StreamOptions& options) : fd{fd} {
+Stream::Stream(int fd, const CapturerOptions& options) : fd{fd} {
   SetParameters(options);
   BindBuffers();
   StartStreaming();
@@ -94,7 +94,7 @@ void Stream::ProcessFrame(StreamProcessor& processor) const {
   }
 }
 
-void Stream::SetParameters(const StreamOptions& options) const {
+void Stream::SetParameters(const CapturerOptions& options) const {
   v4l2_format fmt;
   memset(&fmt, 0, sizeof fmt);
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -196,7 +196,7 @@ Device::Device(std::string_view deviceName) {
   }
 }
 
-Stream Device::GetStream(const StreamOptions& options) const {
+Stream Device::GetStream(const CapturerOptions& options) const {
   return Stream{fd, options};
 }
 

@@ -2,7 +2,7 @@ server:
     address: 0.0.0.0
     port: 13099
 
-stream:
+capturer:
     codec: mjpeg_qsv
     pixfmt: NV12
     width: 1280
@@ -18,7 +18,7 @@ recorder:
     bitrate: 2000000
     maxRecordingTimeInSeconds: 600
 
-encodedstream:
+encoder:
     codec: h264_qsv
     pixfmt: NV12
     format: mpegts

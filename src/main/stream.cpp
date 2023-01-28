@@ -134,14 +134,14 @@ void AppStreamDistributer::RemoveSubscriber(AppStreamReceiver* subscriber) {
 }
 
 AppStreamCapturerRunner::AppStreamCapturerRunner(
-    const video::StreamOptions& streamOptions, AppStreamDistributer& streamDistributer)
-    : streamOptions{streamOptions}, streamDistributer{streamDistributer} {
+    const video::CapturerOptions& capturerOptions, AppStreamDistributer& streamDistributer)
+    : capturerOptions{capturerOptions}, streamDistributer{streamDistributer} {
 }
 
 void AppStreamCapturerRunner::Run() {
-  streamThread = std::thread([this] {
+  capturerThread = std::thread([this] {
     auto device = video::Device("/dev/video0");
-    auto stream = device.GetStream(streamOptions);
+    auto stream = device.GetStream(capturerOptions);
     while (true) {
       stream.ProcessFrame(*this);
     }

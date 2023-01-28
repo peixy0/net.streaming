@@ -16,11 +16,11 @@ int main() {
   YAML::Node config = YAML::LoadFile("config.yaml");
   auto serverAddr = config["server"]["address"].as<std::string>();
   auto serverPort = config["server"]["port"].as<std::uint16_t>();
-  auto streamCodec = config["stream"]["codec"].as<std::string>();
-  auto streamPixfmt = config["stream"]["pixfmt"].as<std::string>();
-  auto streamWidth = config["stream"]["width"].as<int>();
-  auto streamHeight = config["stream"]["height"].as<int>();
-  auto streamFramerate = config["stream"]["framerate"].as<int>();
+  auto capturerCodec = config["capturer"]["codec"].as<std::string>();
+  auto capturerPixfmt = config["capturer"]["pixfmt"].as<std::string>();
+  auto capturerWidth = config["capturer"]["width"].as<int>();
+  auto capturerHeight = config["capturer"]["height"].as<int>();
+  auto capturerFramerate = config["capturer"]["framerate"].as<int>();
   auto recorderCodec = config["recorder"]["codec"].as<std::string>();
   auto recorderPixfmt = config["recorder"]["pixfmt"].as<std::string>();
   auto recorderFormat = config["recorder"]["format"].as<std::string>();
@@ -28,30 +28,30 @@ int main() {
   auto recorderHeight = config["recorder"]["height"].as<int>();
   auto recorderBitrate = config["recorder"]["bitrate"].as<int>();
   auto maxRecordingTimeInSeconds = config["recorder"]["maxRecordingTimeInSeconds"].as<int>();
-  auto encodedStreamCodec = config["encodedstream"]["codec"].as<std::string>();
-  auto encodedStreamPixfmt = config["encodedstream"]["pixfmt"].as<std::string>();
-  auto encodedStreamFormat = config["encodedstream"]["format"].as<std::string>();
-  auto encodedStreamWidth = config["encodedstream"]["width"].as<int>();
-  auto encodedStreamHeight = config["encodedstream"]["height"].as<int>();
-  auto encodedStreamBitrate = config["encodedstream"]["bitrate"].as<int>();
+  auto encoderCodec = config["encoder"]["codec"].as<std::string>();
+  auto encoderPixfmt = config["encoder"]["pixfmt"].as<std::string>();
+  auto encoderFormat = config["encoder"]["format"].as<std::string>();
+  auto encoderWidth = config["encoder"]["width"].as<int>();
+  auto encoderHeight = config["encoder"]["height"].as<int>();
+  auto encoderBitrate = config["encoder"]["bitrate"].as<int>();
 
   application::AppStreamRecorderOptions streamRecorderOptions;
   streamRecorderOptions.maxRecordingTimeInSeconds = maxRecordingTimeInSeconds;
   streamRecorderOptions.saveRecord = false;
 
-  video::StreamOptions streamOptions;
-  streamOptions.width = streamWidth;
-  streamOptions.height = streamHeight;
-  streamOptions.framerate = streamFramerate;
+  video::CapturerOptions capturerOptions;
+  capturerOptions.width = capturerWidth;
+  capturerOptions.height = capturerHeight;
+  capturerOptions.framerate = capturerFramerate;
 
   codec::DecoderOptions decoderOptions;
-  decoderOptions.codec = streamCodec;
+  decoderOptions.codec = capturerCodec;
 
   codec::FilterOptions recorderFilterOptions;
   recorderFilterOptions.width = recorderWidth;
   recorderFilterOptions.height = recorderHeight;
-  recorderFilterOptions.framerate = streamOptions.framerate;
-  recorderFilterOptions.inFormat = streamPixfmt;
+  recorderFilterOptions.framerate = capturerOptions.framerate;
+  recorderFilterOptions.inFormat = capturerPixfmt;
   recorderFilterOptions.outFormat = recorderPixfmt;
   recorderFilterOptions.description =
       "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
@@ -74,25 +74,25 @@ int main() {
   recorderWriterOptions.bitrate = recorderEncoderOptions.bitrate;
 
   codec::FilterOptions encodedStreamFilterOptions;
-  encodedStreamFilterOptions.width = encodedStreamWidth;
-  encodedStreamFilterOptions.height = encodedStreamHeight;
-  encodedStreamFilterOptions.framerate = streamOptions.framerate;
-  encodedStreamFilterOptions.inFormat = streamPixfmt;
-  encodedStreamFilterOptions.outFormat = encodedStreamPixfmt;
+  encodedStreamFilterOptions.width = encoderWidth;
+  encodedStreamFilterOptions.height = encoderHeight;
+  encodedStreamFilterOptions.framerate = capturerOptions.framerate;
+  encodedStreamFilterOptions.inFormat = capturerPixfmt;
+  encodedStreamFilterOptions.outFormat = encoderPixfmt;
   encodedStreamFilterOptions.description =
       "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
       ":text='%{localtime}':fontcolor=yellow:x=10:y=10";
 
   codec::EncoderOptions encodedStreamEncoderOptions;
-  encodedStreamEncoderOptions.codec = encodedStreamCodec;
+  encodedStreamEncoderOptions.codec = encoderCodec;
   encodedStreamEncoderOptions.pixfmt = encodedStreamFilterOptions.outFormat;
   encodedStreamEncoderOptions.width = encodedStreamFilterOptions.width;
   encodedStreamEncoderOptions.height = encodedStreamFilterOptions.height;
   encodedStreamEncoderOptions.framerate = encodedStreamFilterOptions.framerate;
-  encodedStreamEncoderOptions.bitrate = encodedStreamBitrate;
+  encodedStreamEncoderOptions.bitrate = encoderBitrate;
 
   codec::WriterOptions encodedStreamWriterOptions;
-  encodedStreamWriterOptions.format = encodedStreamFormat;
+  encodedStreamWriterOptions.format = encoderFormat;
   encodedStreamWriterOptions.codec = encodedStreamEncoderOptions.codec;
   encodedStreamWriterOptions.width = encodedStreamEncoderOptions.width;
   encodedStreamWriterOptions.height = encodedStreamEncoderOptions.height;
@@ -100,7 +100,7 @@ int main() {
   encodedStreamWriterOptions.bitrate = encodedStreamEncoderOptions.bitrate;
 
   application::AppStreamDistributer mjpegDistributer;
-  application::AppStreamCapturerRunner capturerRunner{streamOptions, mjpegDistributer};
+  application::AppStreamCapturerRunner capturerRunner{capturerOptions, mjpegDistributer};
   capturerRunner.Run();
 
   common::ConcreteEventQueue<application::AppRecorderEvent> recorderEventQueue;
