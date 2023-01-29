@@ -95,8 +95,10 @@ void AppStreamRecorderRunner::Reset() {
   if (recorderOptions.saveRecord) {
     recorderStartTime = std::time(nullptr);
     char buf[50];
-    std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.mp4", std::localtime(&recorderStartTime));
-    transcoder = transcoderFactory.Create(buf);
+    std::strftime(buf, sizeof buf, "%Y.%m.%d.%H.%M.%S.", std::localtime(&recorderStartTime));
+    std::string f{buf};
+    f += recorderOptions.format;
+    transcoder = transcoderFactory.Create(f);
   }
 }
 

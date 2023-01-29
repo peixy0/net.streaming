@@ -41,6 +41,7 @@ private:
 };
 
 struct AppStreamRecorderOptions {
+  std::string format;
   bool saveRecord;
   int maxRecordingTimeInSeconds;
 };

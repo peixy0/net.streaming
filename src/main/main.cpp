@@ -36,6 +36,7 @@ int main() {
   auto encoderBitrate = config["encoder"]["bitrate"].as<int>();
 
   application::AppStreamRecorderOptions streamRecorderOptions;
+  streamRecorderOptions.format = recorderFormat;
   streamRecorderOptions.maxRecordingTimeInSeconds = maxRecordingTimeInSeconds;
   streamRecorderOptions.saveRecord = false;
 
