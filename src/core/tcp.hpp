@@ -58,6 +58,7 @@ public:
   void Close() override;
 
 private:
+  void CloseImpl();
   void MarkPending();
   void UnmarkPending();
 
