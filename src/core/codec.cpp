@@ -233,8 +233,6 @@ Encoder::Encoder(const EncoderOptions& options) {
     spdlog::error("codec avcodec_alloc_context3()");
     return;
   }
-  context->bit_rate = options.bitrate;
-  context->bit_rate_tolerance = options.bitrate / 2;
   context->width = options.width;
   context->height = options.height;
   context->time_base.num = 1;
@@ -244,6 +242,8 @@ Encoder::Encoder(const EncoderOptions& options) {
   context->gop_size = 12;
   context->pix_fmt = ConvertPixFormat(options.pixfmt);
   context->color_range = AVCOL_RANGE_JPEG;
+  context->bit_rate = options.bitrate;
+  context->bit_rate_tolerance = options.bitrate / 2;
   av_opt_set(context->priv_data, "preset", "fast", 0);
   if ((r = avcodec_open2(context, codec, nullptr)) < 0) {
     spdlog::error("codec avcodec_open2(): {}", r);
@@ -366,9 +366,9 @@ Writer::Writer(const WriterOptions& options) : options{options} {
   }
   stream->codecpar->codec_id = codec->id;
   stream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
-  stream->codecpar->bit_rate = options.bitrate;
   stream->codecpar->width = options.width;
   stream->codecpar->height = options.height;
+  stream->codecpar->bit_rate = options.bitrate;
   stream->time_base.num = 1;
   stream->time_base.den = options.framerate;
   packet = av_packet_alloc();

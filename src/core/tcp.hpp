@@ -62,7 +62,7 @@ private:
   void MarkPending();
   void UnmarkPending();
 
-  static constexpr int maxBufferedSize = 1 << 7;
+  static constexpr int maxBufferedSize = 1024;
   int peer;
   TcpSenderSupervisor& supervisor;
   std::deque<TcpSendOperation> buffered;
