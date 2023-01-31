@@ -9,7 +9,7 @@ namespace application {
 
 class AppMjpegSender : public AppStreamReceiver, public network::HttpProcessor {
 public:
-  AppMjpegSender(AppStreamDistributer&, network::HttpSender&, int);
+  AppMjpegSender(AppStreamDistributer&, network::HttpSender&, int skipCount = 0);
   ~AppMjpegSender() override;
   void Notify(std::string_view) override;
   void Process(network::HttpRequest&&) override;
@@ -18,17 +18,17 @@ private:
   AppStreamDistributer& mjpegDistributer;
   network::HttpSender& sender;
   int skipped{0};
-  const int skipFrame;
+  const int skipCount;
 };
 
 class AppMjpegSenderFactory : public network::HttpProcessorFactory {
 public:
-  AppMjpegSenderFactory(AppStreamDistributer&, int skipFrame = 0);
+  AppMjpegSenderFactory(AppStreamDistributer&, int skipCount = 0);
   std::unique_ptr<network::HttpProcessor> Create(network::HttpSender&) const override;
 
 private:
   AppStreamDistributer& distributer;
-  const int skipFrame;
+  const int skipCount;
 };
 
 class AppEncodedStreamSender : public AppStreamReceiver, public codec::WriterProcessor, public network::HttpProcessor {
@@ -41,16 +41,12 @@ public:
 
 private:
   void RunTranscoder();
-  void RunSender();
 
-  static constexpr int batchedBufferSize = 1 << 18;
-  common::ConcreteEventQueue<std::optional<std::string>> transcoderQueue;
-  common::ConcreteEventQueue<std::optional<std::string>> senderQueue;
-  std::thread transcoderThread;
-  std::thread senderThread;
   AppStreamDistributer& mjpegDistributer;
   std::unique_ptr<AppStreamTranscoder> transcoder;
   network::HttpSender& sender;
+  common::ConcreteEventQueue<std::optional<std::string>> transcoderQueue;
+  std::thread transcoderThread;
 };
 
 class AppEncodedStreamSenderFactory : public network::HttpProcessorFactory {
