@@ -121,36 +121,36 @@ int main() {
   std::vector<std::thread> workers;
   const int nWorkers = std::thread::hardware_concurrency() + 1;
   for (int i = 0; i < nWorkers; i++) {
-    workers.emplace_back([&serverAddr, serverPort, &appHttpLayer, &mjpegDistributer,
-                             &encodedStreamTranscoderFactory]() {
-      network::Server server;
-      server.Add(
-          network::HttpMethod::GET, "/", [&appHttpLayer](network::HttpRequest&& req, network::HttpSender& sender) {
-            appHttpLayer.GetIndex(std::move(req), sender);
-          });
-      server.Add(network::HttpMethod::GET, "/snapshot",
-          [&appHttpLayer](network::HttpRequest&& req, network::HttpSender& sender) {
-            appHttpLayer.GetSnapshot(std::move(req), sender);
-          });
-      server.Add(network::HttpMethod::GET, "/recording",
-          [&appHttpLayer](network::HttpRequest&& req, network::HttpSender& sender) {
-            appHttpLayer.GetRecording(std::move(req), sender);
-          });
-      server.Add(network::HttpMethod::POST, "/recording",
-          [&appHttpLayer](network::HttpRequest&& req, network::HttpSender& sender) {
-            appHttpLayer.SetRecording(std::move(req), sender);
-          });
+    workers.emplace_back(
+        [&serverAddr, serverPort, &appHttpLayer, &mjpegDistributer, &encodedStreamTranscoderFactory]() {
+          network::Server server;
+          server.Add(
+              network::HttpMethod::GET, "/", [&appHttpLayer](network::HttpRequest&& req, network::HttpSender& sender) {
+                appHttpLayer.GetIndex(std::move(req), sender);
+              });
+          server.Add(network::HttpMethod::GET, "/snapshot",
+              [&appHttpLayer](network::HttpRequest&& req, network::HttpSender& sender) {
+                appHttpLayer.GetSnapshot(std::move(req), sender);
+              });
+          server.Add(network::HttpMethod::GET, "/recording",
+              [&appHttpLayer](network::HttpRequest&& req, network::HttpSender& sender) {
+                appHttpLayer.GetRecording(std::move(req), sender);
+              });
+          server.Add(network::HttpMethod::POST, "/recording",
+              [&appHttpLayer](network::HttpRequest&& req, network::HttpSender& sender) {
+                appHttpLayer.SetRecording(std::move(req), sender);
+              });
 
-      auto mjpegSenderFactory = std::make_unique<application::AppLowFrameRateMjpegSenderFactory>(mjpegDistributer);
-      server.Add(network::HttpMethod::GET, "/mjpeg", std::move(mjpegSenderFactory));
-      auto mjpeg2SenderFactory = std::make_unique<application::AppHighFrameRateMjpegSenderFactory>(mjpegDistributer);
-      server.Add(network::HttpMethod::GET, "/mjpeg2", std::move(mjpeg2SenderFactory));
-      auto encodedStreamSenderFactory = std::make_unique<application::AppEncodedStreamSenderFactory>(
-          mjpegDistributer, encodedStreamTranscoderFactory);
-      server.Add(network::HttpMethod::GET, "/encoded", std::move(encodedStreamSenderFactory));
+          auto mjpegSenderFactory = std::make_unique<application::AppMjpegSenderFactory>(mjpegDistributer, 1);
+          server.Add(network::HttpMethod::GET, "/mjpeg", std::move(mjpegSenderFactory));
+          auto mjpeg2SenderFactory = std::make_unique<application::AppMjpegSenderFactory>(mjpegDistributer);
+          server.Add(network::HttpMethod::GET, "/mjpeg2", std::move(mjpeg2SenderFactory));
+          auto encodedStreamSenderFactory = std::make_unique<application::AppEncodedStreamSenderFactory>(
+              mjpegDistributer, encodedStreamTranscoderFactory);
+          server.Add(network::HttpMethod::GET, "/stream", std::move(encodedStreamSenderFactory));
 
-      server.Start(serverAddr, serverPort);
-    });
+          server.Start(serverAddr, serverPort);
+        });
   }
   for (auto& w : workers) {
     w.join();

@@ -9,46 +9,26 @@ namespace application {
 
 class AppMjpegSender : public AppStreamReceiver, public network::HttpProcessor {
 public:
-  AppMjpegSender(AppStreamDistributer&, network::HttpSender&);
+  AppMjpegSender(AppStreamDistributer&, network::HttpSender&, int);
   ~AppMjpegSender() override;
+  void Notify(std::string_view) override;
   void Process(network::HttpRequest&&) override;
 
-protected:
+private:
   AppStreamDistributer& mjpegDistributer;
   network::HttpSender& sender;
-};
-
-class AppLowFrameRateMjpegSender : public AppMjpegSender {
-public:
-  AppLowFrameRateMjpegSender(AppStreamDistributer&, network::HttpSender&);
-  void Notify(std::string_view) override;
-
-private:
   int skipped{0};
+  const int skipFrame;
 };
 
-class AppLowFrameRateMjpegSenderFactory : public network::HttpProcessorFactory {
+class AppMjpegSenderFactory : public network::HttpProcessorFactory {
 public:
-  explicit AppLowFrameRateMjpegSenderFactory(AppStreamDistributer&);
+  AppMjpegSenderFactory(AppStreamDistributer&, int skipFrame = 0);
   std::unique_ptr<network::HttpProcessor> Create(network::HttpSender&) const override;
 
 private:
   AppStreamDistributer& distributer;
-};
-
-class AppHighFrameRateMjpegSender : public AppMjpegSender {
-public:
-  AppHighFrameRateMjpegSender(AppStreamDistributer&, network::HttpSender&);
-  void Notify(std::string_view) override;
-};
-
-class AppHighFrameRateMjpegSenderFactory : public network::HttpProcessorFactory {
-public:
-  explicit AppHighFrameRateMjpegSenderFactory(AppStreamDistributer&);
-  std::unique_ptr<network::HttpProcessor> Create(network::HttpSender&) const override;
-
-private:
-  AppStreamDistributer& distributer;
+  const int skipFrame;
 };
 
 class AppEncodedStreamSender : public AppStreamReceiver, public codec::WriterProcessor, public network::HttpProcessor {

@@ -400,7 +400,7 @@ BufferWriter::BufferWriter(const WriterOptions& options, WriterProcessor& proces
 void BufferWriter::Begin() {
   constexpr int writable = 1;
   buffer = static_cast<std::uint8_t*>(av_malloc(bufferSize));
-  formatContext->pb = avio_alloc_context(buffer, sizeof buffer, writable, this, nullptr, WriterCallbackHelper, nullptr);
+  formatContext->pb = avio_alloc_context(buffer, bufferSize, writable, this, nullptr, WriterCallbackHelper, nullptr);
   if (formatContext->pb == nullptr) {
     spdlog::error("codec avio_alloc_context()");
     return;

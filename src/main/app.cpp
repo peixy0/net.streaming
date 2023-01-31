@@ -15,8 +15,8 @@ network::HttpResponse BuildPlainTextRequest(network::HttpStatus status, std::str
 
 namespace application {
 
-AppMjpegSender::AppMjpegSender(AppStreamDistributer& mjpegDistributer, network::HttpSender& sender)
-    : mjpegDistributer{mjpegDistributer}, sender{sender} {
+AppMjpegSender::AppMjpegSender(AppStreamDistributer& mjpegDistributer, network::HttpSender& sender, int skipFrame)
+    : mjpegDistributer{mjpegDistributer}, sender{sender}, skipFrame{skipFrame} {
 }
 
 AppMjpegSender::~AppMjpegSender() {
@@ -28,13 +28,8 @@ void AppMjpegSender::Process(network::HttpRequest&&) {
   mjpegDistributer.AddSubscriber(this);
 }
 
-AppLowFrameRateMjpegSender::AppLowFrameRateMjpegSender(
-    AppStreamDistributer& mjpegDistributer, network::HttpSender& sender)
-    : AppMjpegSender{mjpegDistributer, sender} {
-}
-
-void AppLowFrameRateMjpegSender::Notify(std::string_view buffer) {
-  if (skipped++ < 1) {
+void AppMjpegSender::Notify(std::string_view buffer) {
+  if (++skipped <= skipFrame) {
     return;
   }
   skipped = 0;
@@ -44,32 +39,12 @@ void AppLowFrameRateMjpegSender::Notify(std::string_view buffer) {
   return sender.Send(std::move(resp));
 }
 
-AppLowFrameRateMjpegSenderFactory::AppLowFrameRateMjpegSenderFactory(AppStreamDistributer& distributer)
-    : distributer{distributer} {
+AppMjpegSenderFactory::AppMjpegSenderFactory(AppStreamDistributer& distributer, int skipFrame)
+    : distributer{distributer}, skipFrame{skipFrame} {
 }
 
-std::unique_ptr<network::HttpProcessor> AppLowFrameRateMjpegSenderFactory::Create(network::HttpSender& sender) const {
-  return std::make_unique<AppLowFrameRateMjpegSender>(distributer, sender);
-}
-
-AppHighFrameRateMjpegSender::AppHighFrameRateMjpegSender(
-    AppStreamDistributer& mjpegDistributer, network::HttpSender& sender)
-    : AppMjpegSender{mjpegDistributer, sender} {
-}
-
-void AppHighFrameRateMjpegSender::Notify(std::string_view buffer) {
-  network::MixedReplaceDataHttpResponse resp;
-  resp.headers.emplace("Content-Type", "image/jpeg");
-  resp.body = buffer;
-  return sender.Send(std::move(resp));
-}
-
-AppHighFrameRateMjpegSenderFactory::AppHighFrameRateMjpegSenderFactory(AppStreamDistributer& distributer)
-    : distributer{distributer} {
-}
-
-std::unique_ptr<network::HttpProcessor> AppHighFrameRateMjpegSenderFactory::Create(network::HttpSender& sender) const {
-  return std::make_unique<AppHighFrameRateMjpegSender>(distributer, sender);
+std::unique_ptr<network::HttpProcessor> AppMjpegSenderFactory::Create(network::HttpSender& sender) const {
+  return std::make_unique<AppMjpegSender>(distributer, sender, skipFrame);
 }
 
 AppEncodedStreamSender::AppEncodedStreamSender(
@@ -114,17 +89,8 @@ void AppEncodedStreamSender::RunTranscoder() {
 
 void AppEncodedStreamSender::RunSender() {
   std::optional<std::string> bufferOpt;
-  std::string buffer;
-  buffer.reserve(batchedBufferSize);
   while ((bufferOpt = senderQueue.Pop()) != std::nullopt) {
-    if (buffer.size() + bufferOpt->size() <= batchedBufferSize) {
-      buffer += std::move(*bufferOpt);
-      continue;
-    }
-    sender.Send(network::ChunkedDataHttpResponse{std::move(buffer)});
-    buffer.clear();
-    buffer.reserve(batchedBufferSize);
-    buffer += std::move(*bufferOpt);
+    sender.Send(network::ChunkedDataHttpResponse{std::move(*bufferOpt)});
   }
 }
 
