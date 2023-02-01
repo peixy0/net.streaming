@@ -44,7 +44,7 @@ void DisableCodecLogs() {
 
 class PacketRefGuard {
 public:
-  PacketRefGuard(AVPacket* packet) : packet{packet} {
+  explicit PacketRefGuard(AVPacket* packet) : packet{packet} {
   }
 
   PacketRefGuard(const PacketRefGuard&) = delete;
@@ -59,7 +59,7 @@ private:
 
 class FrameRefGuard {
 public:
-  FrameRefGuard(AVFrame* frame) : frame{frame} {
+  explicit FrameRefGuard(AVFrame* frame) : frame{frame} {
   }
 
   FrameRefGuard(const FrameRefGuard&) = delete;
@@ -128,7 +128,7 @@ void Decoder::Decode(std::string_view buf, DecodedDataProcessor& processor) cons
   int r;
   std::string bufCopy{buf};
   packet->data = reinterpret_cast<std::uint8_t*>(bufCopy.data());
-  packet->size = bufCopy.size();
+  packet->size = static_cast<int>(bufCopy.size());
   if ((r = avcodec_send_packet(context, packet)) < 0) {
     spdlog::error("codec avcodec_send_packet(): {}", r);
     return;

@@ -310,9 +310,6 @@ HttpLayer::HttpLayer(HttpParser& parser, HttpSender& sender_, HttpProcessor& pro
     : parser{parser}, sender{sender_}, processor{processor} {
 }
 
-HttpLayer::~HttpLayer() {
-}
-
 bool HttpLayer::TryProcess(std::string& payload) const {
   auto request = parser.Parse(payload);
   if (not request) {

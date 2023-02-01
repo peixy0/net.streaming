@@ -75,7 +75,7 @@ public:
     return true;
   }
 
-  void Process(HttpRequest&& req) {
+  void Process(HttpRequest&& req) override {
     if (TryUpgrade(req)) {
       upgrader.UpgradeToWebsocket();
       return;
@@ -92,7 +92,7 @@ public:
     httpSender.Send(std::move(resp));
   }
 
-  void Process(WebsocketFrame&& req) {
+  void Process(WebsocketFrame&& req) override {
     if (not websocketProcessor) {
       websocketSender.Close();
     }

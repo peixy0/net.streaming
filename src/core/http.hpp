@@ -33,7 +33,7 @@ private:
 
 class ConcreteHttpSender final : public HttpSender {
 public:
-  ConcreteHttpSender(TcpSender&);
+  explicit ConcreteHttpSender(TcpSender&);
   void Send(HttpResponse&&) const override;
   void Send(FileHttpResponse&&) const override;
   void Send(MixedReplaceHeaderHttpResponse&&) const override;
@@ -53,7 +53,7 @@ public:
   HttpLayer(HttpLayer&&) = delete;
   HttpLayer& operator=(const HttpLayer&) = delete;
   HttpLayer& operator=(HttpLayer&&) = delete;
-  ~HttpLayer() override;
+  ~HttpLayer() override = default;
 
   bool TryProcess(std::string&) const override;
 

@@ -50,7 +50,7 @@ public:
   ConcreteTcpSender(ConcreteTcpSender&&) = delete;
   ConcreteTcpSender& operator=(const ConcreteTcpSender&) = delete;
   ConcreteTcpSender& operator=(ConcreteTcpSender&&) = delete;
-  ~ConcreteTcpSender();
+  ~ConcreteTcpSender() override;
 
   void Send(std::string_view) override;
   void Send(os::File) override;
@@ -62,7 +62,7 @@ private:
   void MarkPending();
   void UnmarkPending();
 
-  static constexpr int maxBufferedSize = 1024;
+  static constexpr int maxBufferedSize = 1 << 10;
   int peer;
   TcpSenderSupervisor& supervisor;
   std::deque<TcpSendOperation> buffered;
@@ -95,7 +95,7 @@ public:
   TcpLayer(TcpLayer&&) = delete;
   TcpLayer& operator=(const TcpLayer&) = delete;
   TcpLayer& operator=(TcpLayer&&) = delete;
-  virtual ~TcpLayer() override;
+  ~TcpLayer() override;
 
   void Start();
   void MarkSenderPending(int) const override;

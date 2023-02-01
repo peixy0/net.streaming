@@ -10,15 +10,19 @@ std::uint32_t LeftRotate(std::uint32_t a, std::uint8_t k) {
 
 namespace common {
 
+char ToChar(std::uint8_t n) {
+  char c = 0;
+  reinterpret_cast<std::uint8_t&>(c) = n & 0xff;
+  return c;
+}
+
 void ToLower(std::string& s) {
   for (char& c : s) {
-    c = tolower(c);
+    c = static_cast<char>(tolower(c));
   }
 }
 
 std::string SHA1(std::string_view s) {
-  constexpr std::uint32_t shaDigestLen = 20;
-  char r[shaDigestLen];
   std::string payload{s};
   std::uint32_t h0 = 0x67452301;
   std::uint32_t h1 = 0xEFCDAB89;
@@ -27,30 +31,32 @@ std::string SHA1(std::string_view s) {
   std::uint32_t h4 = 0xC3D2E1F0;
 
   std::uint64_t ml = payload.size();
-  payload += static_cast<std::uint8_t>(0x80);
   std::uint64_t padLen = (56 - ((ml + 1) % 64) + 64) % 64;
+  payload.reserve(ml + padLen + 8);
+  payload += ToChar(0x80);
   for (std::uint64_t i = 0; i < padLen; i++) {
-    payload += static_cast<std::uint8_t>(0);
+    payload += ToChar(0);
   }
   ml <<= 3;
-  payload += static_cast<std::uint8_t>((ml >> 56) & 0xff);
-  payload += static_cast<std::uint8_t>((ml >> 48) & 0xff);
-  payload += static_cast<std::uint8_t>((ml >> 40) & 0xff);
-  payload += static_cast<std::uint8_t>((ml >> 32) & 0xff);
-  payload += static_cast<std::uint8_t>((ml >> 24) & 0xff);
-  payload += static_cast<std::uint8_t>((ml >> 16) & 0xff);
-  payload += static_cast<std::uint8_t>((ml >> 8) & 0xff);
-  payload += static_cast<std::uint8_t>((ml >> 0) & 0xff);
+  payload += ToChar(ml >> 56);
+  payload += ToChar(ml >> 48);
+  payload += ToChar(ml >> 40);
+  payload += ToChar(ml >> 32);
+  payload += ToChar(ml >> 24);
+  payload += ToChar(ml >> 16);
+  payload += ToChar(ml >> 8);
+  payload += ToChar(ml >> 0);
 
   std::uint64_t len = payload.size();
   std::uint8_t* p = reinterpret_cast<std::uint8_t*>(payload.data());
   for (std::uint64_t chunk = 0; chunk < len; chunk += 64) {
     std::uint32_t w[80] = {0};
     for (int i = 0; i < 16; i++) {
-      w[i] |= p[chunk + i * 4] << 24;
-      w[i] |= p[chunk + i * 4 + 1] << 16;
-      w[i] |= p[chunk + i * 4 + 2] << 8;
-      w[i] |= p[chunk + i * 4 + 3];
+      int x = i * 4;
+      w[i] |= p[chunk + x] << 24;
+      w[i] |= p[chunk + x + 1] << 16;
+      w[i] |= p[chunk + x + 2] << 8;
+      w[i] |= p[chunk + x + 3];
     }
     for (int i = 16; i < 80; i++) {
       w[i] = LeftRotate(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
@@ -92,30 +98,32 @@ std::string SHA1(std::string_view s) {
     h4 = h4 + e;
   }
 
-  r[0] = (h0 >> 24) & 0xff;
-  r[1] = (h0 >> 16) & 0xff;
-  r[2] = (h0 >> 8) & 0xff;
-  r[3] = (h0 >> 0) & 0xff;
+  constexpr std::uint32_t shaDigestLen = 20;
+  char r[shaDigestLen];
+  r[0] = ToChar(h0 >> 24);
+  r[1] = ToChar(h0 >> 16);
+  r[2] = ToChar(h0 >> 8);
+  r[3] = ToChar(h0 >> 0);
 
-  r[4] = (h1 >> 24) & 0xff;
-  r[5] = (h1 >> 16) & 0xff;
-  r[6] = (h1 >> 8) & 0xff;
-  r[7] = (h1 >> 0) & 0xff;
+  r[4] = ToChar(h1 >> 24);
+  r[5] = ToChar(h1 >> 16);
+  r[6] = ToChar(h1 >> 8);
+  r[7] = ToChar(h1 >> 0);
 
-  r[8] = (h2 >> 24) & 0xff;
-  r[9] = (h2 >> 16) & 0xff;
-  r[10] = (h2 >> 8) & 0xff;
-  r[11] = (h2 >> 0) & 0xff;
+  r[8] = ToChar(h2 >> 24);
+  r[9] = ToChar(h2 >> 16);
+  r[10] = ToChar(h2 >> 8);
+  r[11] = ToChar(h2 >> 0);
 
-  r[12] = (h3 >> 24) & 0xff;
-  r[13] = (h3 >> 16) & 0xff;
-  r[14] = (h3 >> 8) & 0xff;
-  r[15] = (h3 >> 0) & 0xff;
+  r[12] = ToChar(h3 >> 24);
+  r[13] = ToChar(h3 >> 16);
+  r[14] = ToChar(h3 >> 8);
+  r[15] = ToChar(h3 >> 0);
 
-  r[16] = (h4 >> 24) & 0xff;
-  r[17] = (h4 >> 16) & 0xff;
-  r[18] = (h4 >> 8) & 0xff;
-  r[19] = (h4 >> 0) & 0xff;
+  r[16] = ToChar(h4 >> 24);
+  r[17] = ToChar(h4 >> 16);
+  r[18] = ToChar(h4 >> 8);
+  r[19] = ToChar(h4 >> 0);
 
   return std::string{r, r + shaDigestLen};
 }
@@ -125,7 +133,7 @@ std::string Base64(std::string_view payload) {
       "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
       "abcdefghijklmnopqrstuvwxyz"
       "0123456789+/";
-  int len = payload.size();
+  size_t len = payload.size();
   const unsigned char* p = reinterpret_cast<const unsigned char*>(payload.data());
   std::string result;
   while (len >= 3) {

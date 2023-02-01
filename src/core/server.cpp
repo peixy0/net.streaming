@@ -22,7 +22,7 @@ struct LambdaProcessorWrapper : public ProcessorT {
 template <typename ProcessorFactoryT, typename ProcessorT, typename RequestT, typename SenderT>
 class LambdaProcessorFactoryWrapper : public ProcessorFactoryT {
 public:
-  LambdaProcessorFactoryWrapper(std::function<void(RequestT&&, SenderT&)> f) : f{f} {
+  explicit LambdaProcessorFactoryWrapper(std::function<void(RequestT&&, SenderT&)> f) : f{f} {
   }
 
   std::unique_ptr<ProcessorT> Create(SenderT& sender) const override {

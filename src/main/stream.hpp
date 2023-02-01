@@ -43,7 +43,7 @@ private:
 struct AppStreamRecorderOptions {
   std::string format;
   bool saveRecord;
-  int maxRecordingTimeInSeconds;
+  std::uint32_t maxRecordingTimeInSeconds;
 };
 
 struct StartRecording {};

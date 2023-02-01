@@ -56,7 +56,7 @@ struct FilterOptions {
 
 class Filter {
 public:
-  Filter(const FilterOptions&);
+  explicit Filter(const FilterOptions&);
   ~Filter();
   void Process(AVFrame*, FilteredDataProcessor&);
 

@@ -29,9 +29,9 @@ public:
 };
 
 struct CapturerOptions {
-  std::uint32_t width;
-  std::uint32_t height;
-  std::uint32_t framerate;
+  int width;
+  int height;
+  int framerate;
 };
 
 class Stream {

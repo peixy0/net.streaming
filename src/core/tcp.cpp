@@ -27,7 +27,7 @@ TcpSendBuffer::TcpSendBuffer(int peer, std::string_view buffer) : peer{peer}, bu
 
 void TcpSendBuffer::Send() {
   while (size > 0) {
-    int n = send(peer, buffer.c_str(), size, 0);
+    ssize_t n = send(peer, buffer.c_str(), size, 0);
     if (n == -1) {
       if (errno == EAGAIN or errno == EWOULDBLOCK) {
         return;
@@ -57,7 +57,7 @@ TcpSendFile::TcpSendFile(int peer, os::File file_) : peer{peer}, file{std::move(
 
 void TcpSendFile::Send() {
   while (size > 0) {
-    int n = sendfile(peer, file.Fd(), nullptr, size);
+    ssize_t n = sendfile(peer, file.Fd(), nullptr, size);
     if (n < 0) {
       if (errno == EAGAIN or errno == EWOULDBLOCK) {
         return;
@@ -300,7 +300,7 @@ void TcpLayer::ReadFromPeer(int peerDescriptor) {
   }
   char buf[512];
   size_t size = sizeof buf;
-  int r = recv(peerDescriptor, buf, size, 0);
+  ssize_t r = recv(peerDescriptor, buf, size, 0);
   if (r < 0) {
     if (errno == EAGAIN or errno == EWOULDBLOCK) {
       return;

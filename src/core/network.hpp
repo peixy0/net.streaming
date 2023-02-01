@@ -163,7 +163,7 @@ public:
 
 class Router : public HttpProcessor, public WebsocketProcessor {
 public:
-  virtual ~Router() = default;
+  ~Router() override = default;
 };
 
 class RouterFactory {

@@ -38,7 +38,7 @@ int File::Fd() const {
   return fd;
 }
 
-int File::Size() const {
+size_t File::Size() const {
   return size;
 }
 

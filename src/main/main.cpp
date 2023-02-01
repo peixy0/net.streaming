@@ -119,8 +119,8 @@ int main() {
   application::AppHttpLayer appHttpLayer{snapshotSaver, recorderController};
 
   std::vector<std::thread> workers;
-  const int nWorkers = std::thread::hardware_concurrency() + 1;
-  for (int i = 0; i < nWorkers; i++) {
+  const size_t nWorkers = std::thread::hardware_concurrency() + 1;
+  for (size_t i = 0; i < nWorkers; i++) {
     workers.emplace_back(
         [&serverAddr, serverPort, &appHttpLayer, &mjpegDistributer, &encodedStreamTranscoderFactory]() {
           network::Server server;

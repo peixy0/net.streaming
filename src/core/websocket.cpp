@@ -5,13 +5,13 @@
 namespace network {
 
 std::optional<WebsocketFrame> ConcreteWebsocketParser::Parse(std::string& payload) const {
-  int payloadLen = payload.length();
-  int requiredLen = headerLen;
+  std::uint64_t payloadLen = payload.length();
+  std::uint64_t requiredLen = headerLen;
   if (payloadLen < requiredLen) {
     return std::nullopt;
   }
   WebsocketFrame frame;
-  const auto* p = reinterpret_cast<const unsigned char*>(payload.data());
+  const auto* p = reinterpret_cast<const std::uint8_t*>(payload.data());
   frame.fin = (p[0] >> 7) & 0b1;
   frame.opcode = p[0] & 0b1111;
   bool mask = (p[1] >> 7) & 0b1;
@@ -35,7 +35,7 @@ std::optional<WebsocketFrame> ConcreteWebsocketParser::Parse(std::string& payloa
     }
     p += payloadExtLen;
   }
-  unsigned char maskKey[maskLen] = {0};
+  std::uint8_t maskKey[maskLen] = {0};
   if (mask) {
     requiredLen += maskLen;
     if (payloadLen < requiredLen) {
@@ -52,7 +52,7 @@ std::optional<WebsocketFrame> ConcreteWebsocketParser::Parse(std::string& payloa
   }
   std::string data{p, p + len};
   for (std::uint64_t i = 0; i < len; i++) {
-    data[i] ^= reinterpret_cast<const std::uint8_t*>(&maskKey)[i % maskLen];
+    reinterpret_cast<std::uint8_t&>(data[i]) ^= maskKey[i % maskLen];
   }
   frame.payload = std::move(data);
   payload.erase(0, requiredLen);
@@ -64,20 +64,20 @@ ConcreteWebsocketSender::ConcreteWebsocketSender(TcpSender& sender) : sender{sen
 
 void ConcreteWebsocketSender::Send(WebsocketFrame&& frame) const {
   std::string payload;
-  payload += static_cast<unsigned char>((frame.fin << 7) | (frame.opcode));
+  payload += common::ToChar((frame.fin << 7) | (frame.opcode));
   std::uint64_t payloadLen = frame.payload.length();
   if (payloadLen < 126) {
-    payload += static_cast<unsigned char>(payloadLen);
+    payload += common::ToChar(payloadLen);
   } else if (payloadLen < (1 << 16)) {
-    payload += static_cast<unsigned char>(126);
-    payload += static_cast<unsigned char>((payloadLen >> 8) & 0xff);
-    payload += static_cast<unsigned char>(payloadLen & 0xff);
+    payload += common::ToChar(126);
+    payload += common::ToChar(payloadLen >> 8);
+    payload += common::ToChar(payloadLen);
   } else {
-    payload += static_cast<unsigned char>(127);
-    payload += static_cast<unsigned char>((payloadLen >> 24) & 0xff);
-    payload += static_cast<unsigned char>((payloadLen >> 16) & 0xff);
-    payload += static_cast<unsigned char>((payloadLen >> 8) & 0xff);
-    payload += static_cast<unsigned char>(payloadLen & 0xff);
+    payload += common::ToChar(127);
+    payload += common::ToChar(payloadLen >> 24);
+    payload += common::ToChar(payloadLen >> 16);
+    payload += common::ToChar(payloadLen >> 8);
+    payload += common::ToChar(payloadLen);
   }
   payload += frame.payload;
   sender.Send(payload);
@@ -115,9 +115,6 @@ std::optional<HttpResponse> WebsocketHandshakeBuilder::Build() const {
 
 WebsocketLayer::WebsocketLayer(WebsocketParser& parser, WebsocketSender& sender, WebsocketProcessor& processor)
     : parser{parser}, sender{sender}, processor{processor} {
-}
-
-WebsocketLayer::~WebsocketLayer() {
 }
 
 bool WebsocketLayer::TryProcess(std::string& payload) const {

@@ -23,7 +23,7 @@ private:
 
 class AppMjpegSenderFactory : public network::HttpProcessorFactory {
 public:
-  AppMjpegSenderFactory(AppStreamDistributer&, int skipCount = 0);
+  explicit AppMjpegSenderFactory(AppStreamDistributer&, int skipCount = 0);
   std::unique_ptr<network::HttpProcessor> Create(network::HttpSender&) const override;
 
 private:
