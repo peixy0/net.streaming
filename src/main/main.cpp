@@ -141,10 +141,8 @@ int main() {
                 appHttpLayer.SetRecording(std::move(req), sender);
               });
 
-          auto mjpegSenderFactory = std::make_unique<application::AppMjpegSenderFactory>(mjpegDistributer, 15);
+          auto mjpegSenderFactory = std::make_unique<application::AppMjpegSenderFactory>(mjpegDistributer);
           server.Add(network::HttpMethod::GET, "/mjpeg", std::move(mjpegSenderFactory));
-          auto mjpeg2SenderFactory = std::make_unique<application::AppMjpegSenderFactory>(mjpegDistributer);
-          server.Add(network::HttpMethod::GET, "/mjpeg2", std::move(mjpeg2SenderFactory));
           auto encodedStreamSenderFactory = std::make_unique<application::AppEncodedStreamSenderFactory>(
               mjpegDistributer, encodedStreamTranscoderFactory);
           server.Add(network::HttpMethod::GET, "/stream", std::move(encodedStreamSenderFactory));

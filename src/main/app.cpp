@@ -15,17 +15,21 @@ network::HttpResponse BuildPlainTextRequest(network::HttpStatus status, std::str
 
 namespace application {
 
-AppMjpegSender::AppMjpegSender(AppStreamDistributer& mjpegDistributer, network::HttpSender& sender, int skipCout)
-    : mjpegDistributer{mjpegDistributer}, sender{sender}, skipCount{skipCout} {
-  sender.Send(network::MixedReplaceHeaderHttpResponse{});
-  mjpegDistributer.AddSubscriber(this);
+AppMjpegSender::AppMjpegSender(AppStreamDistributer& mjpegDistributer, network::HttpSender& sender)
+    : mjpegDistributer{mjpegDistributer}, sender{sender} {
 }
 
 AppMjpegSender::~AppMjpegSender() {
   mjpegDistributer.RemoveSubscriber(this);
 }
 
-void AppMjpegSender::Process(network::HttpRequest&&) {
+void AppMjpegSender::Process(network::HttpRequest&& req) {
+  auto skipIt = req.query.find("skip");
+  if (skipIt != req.query.end()) {
+    skipCount = std::stoi(skipIt->second);
+  }
+  sender.Send(network::MixedReplaceHeaderHttpResponse{});
+  mjpegDistributer.AddSubscriber(this);
 }
 
 void AppMjpegSender::Notify(std::string_view buffer) {
@@ -39,12 +43,11 @@ void AppMjpegSender::Notify(std::string_view buffer) {
   return sender.Send(std::move(resp));
 }
 
-AppMjpegSenderFactory::AppMjpegSenderFactory(AppStreamDistributer& distributer, int skipFrame)
-    : distributer{distributer}, skipCount{skipFrame} {
+AppMjpegSenderFactory::AppMjpegSenderFactory(AppStreamDistributer& distributer) : distributer{distributer} {
 }
 
 std::unique_ptr<network::HttpProcessor> AppMjpegSenderFactory::Create(network::HttpSender& sender) const {
-  return std::make_unique<AppMjpegSender>(distributer, sender, skipCount);
+  return std::make_unique<AppMjpegSender>(distributer, sender);
 }
 
 AppEncodedStreamSender::AppEncodedStreamSender(

@@ -9,7 +9,7 @@ namespace application {
 
 class AppMjpegSender : public AppStreamReceiver, public network::HttpProcessor {
 public:
-  AppMjpegSender(AppStreamDistributer&, network::HttpSender&, int skipCount = 0);
+  AppMjpegSender(AppStreamDistributer&, network::HttpSender&);
   ~AppMjpegSender() override;
   void Notify(std::string_view) override;
   void Process(network::HttpRequest&&) override;
@@ -18,17 +18,16 @@ private:
   AppStreamDistributer& mjpegDistributer;
   network::HttpSender& sender;
   int skipped{0};
-  const int skipCount;
+  int skipCount{0};
 };
 
 class AppMjpegSenderFactory : public network::HttpProcessorFactory {
 public:
-  explicit AppMjpegSenderFactory(AppStreamDistributer&, int skipCount = 0);
+  explicit AppMjpegSenderFactory(AppStreamDistributer&);
   std::unique_ptr<network::HttpProcessor> Create(network::HttpSender&) const override;
 
 private:
   AppStreamDistributer& distributer;
-  const int skipCount;
 };
 
 class AppEncodedStreamSender : public AppStreamReceiver, public codec::WriterProcessor, public network::HttpProcessor {

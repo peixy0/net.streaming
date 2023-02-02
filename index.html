@@ -87,9 +87,9 @@
         highFramerateCtrl.hidden = !highFramerate;
         localStorage.setItem('HighFramerate', highFramerate ? 'on' : 'off');
         if (highFramerate) {
-          stream.src = '/mjpeg2';
-        } else {
           stream.src = '/mjpeg';
+        } else {
+          stream.src = '/mjpeg?skip=15';
         }
       }
       reset();
