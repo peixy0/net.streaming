@@ -54,9 +54,6 @@ AppEncodedStreamSender::AppEncodedStreamSender(
     AppStreamDistributer& mjpegDistributer, AppStreamTranscoderFactory& transcoderFactory, network::HttpSender& sender)
     : mjpegDistributer{mjpegDistributer}, transcoder{transcoderFactory.Create(*this)}, sender{sender} {
   transcoderThread = std::thread([this] { RunTranscoder(); });
-  network::ChunkedHeaderHttpResponse resp;
-  sender.Send(std::move(resp));
-  mjpegDistributer.AddSubscriber(this);
 }
 
 AppEncodedStreamSender::~AppEncodedStreamSender() {
@@ -76,6 +73,9 @@ void AppEncodedStreamSender::WriteData(std::string_view buffer) {
 }
 
 void AppEncodedStreamSender::Process(network::HttpRequest&&) {
+  network::ChunkedHeaderHttpResponse resp;
+  sender.Send(std::move(resp));
+  mjpegDistributer.AddSubscriber(this);
 }
 
 void AppEncodedStreamSender::RunTranscoder() {

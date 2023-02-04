@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <mutex>
 #include "codec.hpp"
 #include "event_queue.hpp"
@@ -18,7 +19,7 @@ private:
   AppStreamDistributer& mjpegDistributer;
   network::HttpSender& sender;
   int skipped{0};
-  int skipCount{0};
+  std::atomic<int> skipCount{0};
 };
 
 class AppMjpegSenderFactory : public network::HttpProcessorFactory {

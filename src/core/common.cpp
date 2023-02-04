@@ -10,9 +10,9 @@ std::uint32_t LeftRotate(std::uint32_t a, std::uint8_t k) {
 
 namespace common {
 
-char ToChar(std::uint8_t n) {
-  char c = 0;
-  reinterpret_cast<std::uint8_t&>(c) = n & 0xff;
+char ToChar(std::uint64_t n) {
+  char c;
+  reinterpret_cast<std::uint8_t&>(c) = static_cast<std::uint8_t>(n & 0xff);
   return c;
 }
 

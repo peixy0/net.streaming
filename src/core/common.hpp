@@ -3,7 +3,7 @@
 
 namespace common {
 
-char ToChar(std::uint8_t);
+char ToChar(std::uint64_t);
 
 void ToLower(std::string&);
 
