@@ -306,8 +306,8 @@ void ConcreteHttpSender::Close() const {
   sender.Close();
 }
 
-HttpLayer::HttpLayer(HttpParser& parser, HttpSender& sender_, HttpProcessor& processor)
-    : parser{parser}, sender{sender_}, processor{processor} {
+HttpLayer::HttpLayer(HttpParser& parser, HttpSender& sender, HttpProcessor& processor)
+    : parser{parser}, sender{sender}, processor{processor} {
 }
 
 bool HttpLayer::TryProcess(std::string& payload) const {

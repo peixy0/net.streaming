@@ -1,9 +1,8 @@
 #pragma once
 #include <regex>
 #include <string>
-#include <string_view>
 #include <vector>
-#include "network.hpp"
+#include "http.hpp"
 #include "websocket.hpp"
 
 namespace network {
@@ -50,61 +49,33 @@ private:
 
 class ConcreteRouter final : public Router {
 public:
-  ConcreteRouter(HttpSender& httpSender, HttpRouteMapping& httpMapping, WebsocketSender& websocketSender,
-      WebsocketRouteMapping& websocketMapping, ProtocolUpgrader& upgrader)
-      : httpSender{httpSender},
-        httpMapping{httpMapping},
-        websocketSender{websocketSender},
+  ConcreteRouter(HttpRouteMapping& httpMapping, WebsocketRouteMapping& websocketMapping, TcpSender& sender,
+      ProtocolDispatcher& dispatcher)
+      : httpMapping{httpMapping},
+        httpSender{sender},
+        httpLayer{httpParser, httpSender, *this},
         websocketMapping{websocketMapping},
-        upgrader{upgrader} {
+        websocketSender{sender},
+        websocketLayer{websocketParser, websocketSender, *this},
+        dispatcher{dispatcher} {
+    dispatcher.SetProcessor(&httpLayer);
   }
 
-  bool TryUpgrade(const HttpRequest& req) {
-    auto* entry = websocketMapping.Get(req.uri);
-    if (not entry) {
-      return false;
-    }
-    WebsocketHandshakeBuilder handshake{req};
-    auto resp = handshake.Build();
-    if (not resp) {
-      return false;
-    }
-    httpProcessor.reset();
-    websocketProcessor = entry->Create(websocketSender);
-    httpSender.Send(std::move(*resp));
-    return true;
-  }
-
-  void Process(HttpRequest&& req) override {
-    if (TryUpgrade(req)) {
-      upgrader.UpgradeToWebsocket();
-      return;
-    }
-    auto entry = httpMapping.Get(req.method, req.uri);
-    if (entry) {
-      websocketProcessor.reset();
-      httpProcessor = entry->Create(httpSender);
-      httpProcessor->Process(std::move(req));
-      return;
-    }
-    HttpResponse resp;
-    resp.status = HttpStatus::NotFound;
-    httpSender.Send(std::move(resp));
-  }
-
-  void Process(WebsocketFrame&& req) override {
-    if (not websocketProcessor) {
-      websocketSender.Close();
-    }
-    websocketProcessor->Process(std::move(req));
-  }
+  void Process(HttpRequest&& req) override;
+  void Process(WebsocketFrame&& req) override;
 
 private:
-  HttpSender& httpSender;
+  bool TryUpgrade(const HttpRequest& req);
+
   HttpRouteMapping& httpMapping;
-  WebsocketSender& websocketSender;
+  ConcreteHttpSender httpSender;
+  ConcreteHttpParser httpParser;
+  HttpLayer httpLayer;
   WebsocketRouteMapping& websocketMapping;
-  ProtocolUpgrader& upgrader;
+  ConcreteWebsocketSender websocketSender;
+  ConcreteWebsocketParser websocketParser;
+  WebsocketLayer websocketLayer;
+  ProtocolDispatcher& dispatcher;
   std::unique_ptr<HttpProcessor> httpProcessor;
   std::unique_ptr<WebsocketProcessor> websocketProcessor;
 };
@@ -115,9 +86,8 @@ public:
       : httpMapping{httpMapping}, websocketMapping{websocketMapping} {
   }
 
-  std::unique_ptr<Router> Create(
-      HttpSender& httpSender, WebsocketSender& websocketSender, ProtocolUpgrader& upgrader) const override {
-    return std::make_unique<ConcreteRouter>(httpSender, httpMapping, websocketSender, websocketMapping, upgrader);
+  std::unique_ptr<Router> Create(TcpSender& sender, ProtocolDispatcher& dispatcher) const override {
+    return std::make_unique<ConcreteRouter>(httpMapping, websocketMapping, sender, dispatcher);
   }
 
 private:

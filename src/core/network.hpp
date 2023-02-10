@@ -36,16 +36,16 @@ public:
   virtual std::unique_ptr<TcpProcessor> Create(TcpSender&) const = 0;
 };
 
-class ProtocolUpgrader {
-public:
-  virtual ~ProtocolUpgrader() = default;
-  virtual void UpgradeToWebsocket() = 0;
-};
-
 class ProtocolProcessor {
 public:
   virtual ~ProtocolProcessor() = default;
   virtual bool TryProcess(std::string&) const = 0;
+};
+
+class ProtocolDispatcher {
+public:
+  virtual ~ProtocolDispatcher() = default;
+  virtual void SetProcessor(ProtocolProcessor*) = 0;
 };
 
 enum class HttpMethod { PUT, GET, POST, DELETE };
@@ -169,7 +169,7 @@ public:
 class RouterFactory {
 public:
   virtual ~RouterFactory() = default;
-  virtual std::unique_ptr<Router> Create(HttpSender&, WebsocketSender&, ProtocolUpgrader&) const = 0;
+  virtual std::unique_ptr<Router> Create(TcpSender&, ProtocolDispatcher&) const = 0;
 };
 
 }  // namespace network

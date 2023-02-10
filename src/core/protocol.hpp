@@ -1,43 +1,51 @@
 #pragma once
 #include <memory>
-#include "http.hpp"
 #include "network.hpp"
-#include "websocket.hpp"
 
 namespace network {
 
-class ProtocolLayer final : public TcpProcessor, public ProtocolUpgrader {
+class ProtocolLayer final : public TcpProcessor, public ProtocolDispatcher {
 public:
-  ProtocolLayer(TcpSender&, RouterFactory&);
+  ProtocolLayer(TcpSender& sender, RouterFactory& routerFactory) : router{routerFactory.Create(sender, *this)} {
+  }
   ProtocolLayer(const ProtocolLayer&) = delete;
   ProtocolLayer(ProtocolLayer&&) = delete;
   ProtocolLayer& operator=(const ProtocolLayer&) = delete;
   ProtocolLayer& operator=(ProtocolLayer&&) = delete;
   ~ProtocolLayer() override = default;
 
-  void Process(std::string_view) override;
-  void UpgradeToWebsocket() override;
+  void Process(std::string_view payload) override {
+    buffer += payload;
+    if (not processor) {
+      return;
+    }
+    while (processor->TryProcess(buffer)) {
+    }
+  }
+
+  void SetProcessor(ProtocolProcessor* processor_) override {
+    processor = processor_;
+  }
 
 private:
-  ConcreteHttpParser httpParser;
-  ConcreteHttpSender httpSender;
-  ConcreteWebsocketParser websocketParser;
-  ConcreteWebsocketSender websocketSender;
-  std::unique_ptr<Router> router;
-  std::unique_ptr<ProtocolProcessor> processor;
   std::string buffer;
+  ProtocolProcessor* processor{nullptr};
+  std::unique_ptr<Router> router;
 };
 
 class ProtocolLayerFactory final : public TcpProcessorFactory {
 public:
-  explicit ProtocolLayerFactory(RouterFactory&);
+  explicit ProtocolLayerFactory(RouterFactory& routerFactory) : routerFactory{routerFactory} {
+  }
   ProtocolLayerFactory(const ProtocolLayerFactory&) = delete;
   ProtocolLayerFactory(ProtocolLayerFactory&&) = delete;
   ProtocolLayerFactory& operator=(const ProtocolLayerFactory&) = delete;
   ProtocolLayerFactory& operator=(ProtocolLayerFactory&&) = delete;
   ~ProtocolLayerFactory() override = default;
 
-  std::unique_ptr<TcpProcessor> Create(TcpSender&) const override;
+  std::unique_ptr<TcpProcessor> Create(TcpSender& sender) const override {
+    return std::make_unique<ProtocolLayer>(sender, routerFactory);
+  }
 
 private:
   RouterFactory& routerFactory;
