@@ -257,6 +257,10 @@ void TcpLayer::StartLoop() {
         SetupPeer();
         continue;
       }
+      if (events[i].events & EPOLLERR) {
+        ClosePeer(events[i].data.fd);
+        continue;
+      }
       if (events[i].events & EPOLLIN) {
         ReadFromPeer(events[i].data.fd);
         continue;
