@@ -47,6 +47,10 @@ bool TcpSendBuffer::Done() const {
   return size == 0;
 }
 
+std::string TcpSendBuffer::Buffer() const {
+  return buffer;
+}
+
 TcpSendFile::TcpSendFile(int peer, os::File file_) : peer{peer}, file{std::move(file_)} {
   if (not file.Ok()) {
     size = 0;
@@ -102,21 +106,25 @@ void ConcreteTcpSender::SendBuffered() {
 
 void ConcreteTcpSender::Send(std::string_view buf) {
   std::lock_guard lock{senderMut};
-  if (buffered.size() > maxBufferedSize) {
-    CloseImpl();
-    return;
+  std::string accumulated{buf};
+  while (not buffered.empty()) {
+    auto& lastOp = buffered.back();
+    if (not std::holds_alternative<TcpSendBuffer>(lastOp)) {
+      break;
+    }
+    auto& lastWriteBuffer = std::get<TcpSendBuffer>(lastOp);
+    std::string s = lastWriteBuffer.Buffer();
+    s += accumulated;
+    accumulated = std::move(s);
+    buffered.pop_back();
   }
-  TcpSendBuffer op{peer, buf};
+  TcpSendBuffer op{peer, std::move(accumulated)};
   buffered.emplace_back(std::move(op));
   MarkPending();
 }
 
 void ConcreteTcpSender::Send(os::File file) {
   std::lock_guard lock{senderMut};
-  if (buffered.size() > maxBufferedSize) {
-    CloseImpl();
-    return;
-  }
   TcpSendFile op{peer, std::move(file)};
   buffered.emplace_back(std::move(op));
   MarkPending();

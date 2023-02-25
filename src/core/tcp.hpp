@@ -17,6 +17,7 @@ public:
   ~TcpSendBuffer() = default;
   void Send();
   bool Done() const;
+  std::string Buffer() const;
 
 private:
   int peer;
@@ -62,7 +63,6 @@ private:
   void MarkPending();
   void UnmarkPending();
 
-  static constexpr int maxBufferedSize = 1 << 10;
   int peer;
   TcpSenderSupervisor& supervisor;
   std::deque<TcpSendOperation> buffered;
