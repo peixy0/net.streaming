@@ -194,10 +194,16 @@ TcpLayer::~TcpLayer() {
 }
 
 void TcpLayer::Start() {
+  epollDescriptor = epoll_create1(0);
+  if (epollDescriptor < 0) {
+    spdlog::error("tcp epoll_create1(): {}", strerror(errno));
+    return;
+  }
   localDescriptor = CreateSocket();
   if (localDescriptor < 0) {
     return;
   }
+  MarkReceiverPending(localDescriptor);
   StartLoop();
 }
 
@@ -250,12 +256,6 @@ void TcpLayer::SetNonBlocking(int s) const {
 }
 
 void TcpLayer::StartLoop() {
-  epollDescriptor = epoll_create1(0);
-  if (epollDescriptor < 0) {
-    spdlog::error("tcp epoll_create1(): {}", strerror(errno));
-    return;
-  }
-  MarkReceiverPending(localDescriptor);
   constexpr int maxEvents = 32;
   epoll_event events[maxEvents];
   while (true) {
@@ -282,15 +282,10 @@ void TcpLayer::StartLoop() {
 }
 
 void TcpLayer::SetupPeer() {
-  sockaddr_in peerAddr;
-  socklen_t n = sizeof peerAddr;
-  memset(&peerAddr, 0, n);
-  int s = accept(localDescriptor, reinterpret_cast<sockaddr*>(&peerAddr), &n);
+  int s = Accept(localDescriptor);
   if (s < 0) {
-    spdlog::error("tcp accept(): {}", strerror(errno));
     return;
   }
-  SetNonBlocking(s);
   MarkReceiverPending(s);
 
   auto sender = std::make_unique<ConcreteTcpSender>(s, *this);
@@ -379,6 +374,19 @@ out:
     close(s);
   }
   return -1;
+}
+
+int Tcp4Layer::Accept(int fd) const {
+  sockaddr_in peerAddr;
+  socklen_t n = sizeof peerAddr;
+  memset(&peerAddr, 0, n);
+  int s = accept(fd, reinterpret_cast<sockaddr*>(&peerAddr), &n);
+  if (s < 0) {
+    spdlog::error("tcp accept(): {}", strerror(errno));
+    return -1;
+  }
+  SetNonBlocking(s);
+  return s;
 }
 
 }  // namespace network

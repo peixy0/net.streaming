@@ -103,6 +103,7 @@ public:
 
 protected:
   virtual int CreateSocket() const = 0;
+  virtual int Accept(int) const = 0;
   void SetNonBlocking(int) const;
 
 private:
@@ -125,6 +126,7 @@ public:
 
 protected:
   int CreateSocket() const override;
+  int Accept(int) const override;
 
 private:
   std::string host;
