@@ -294,9 +294,9 @@ void TcpLayer::SetupPeer() {
 }
 
 void TcpLayer::ClosePeer(int peerDescriptor) {
+  connections.erase(peerDescriptor);
   epoll_ctl(epollDescriptor, EPOLL_CTL_DEL, peerDescriptor, nullptr);
   close(peerDescriptor);
-  connections.erase(peerDescriptor);
 }
 
 void TcpLayer::ReadFromPeer(int peerDescriptor) {

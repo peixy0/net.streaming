@@ -57,8 +57,8 @@ AppEncodedStreamSender::AppEncodedStreamSender(
 }
 
 AppEncodedStreamSender::~AppEncodedStreamSender() {
-  mjpegDistributer.RemoveSubscriber(this);
   transcoderQueue.Push(std::nullopt);
+  mjpegDistributer.RemoveSubscriber(this);
   transcoderThread.join();
   transcoder.reset();
 }
